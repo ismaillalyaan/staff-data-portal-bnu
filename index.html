@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}img{max-width:100%}</style>
 <title>بيانات الهيئة المعاونة</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -153,6 +159,8 @@ details.dd[open] summary{border-color:var(--accent)}
 </style>
 <script>document.documentElement.lang="ar";document.documentElement.dir="rtl";</script>
 
+</head>
+<body>
 <div id="site-header"><!-- IT: place the organization header / navigation here --></div>
 
 <header class="topbar">
@@ -340,6 +348,8 @@ const lsGet=()=>{try{return JSON.parse(localStorage.getItem(STORE)||"[]")}catch(
 const lsSet=a=>{try{localStorage.setItem(STORE,JSON.stringify(a));return true}catch(e){return false}};
 
 /* ===== قاعدة البيانات ===== */
+/* TEMPORARY test mode: set to false (or delete the marked lines) to revert */
+const TEST_MODE=true;
 const COLL="responses";
 let REAL=[], DEMO=[], DEMO_ON=false, RESP=[], SOURCE="local";
 let DB=null, UID=null, CAN_ADMIN=false, LOCKED=false, LOADING=false, SLOW=false, BOOT=true;
@@ -421,7 +431,7 @@ SECTIONS.forEach((s,si)=>{
     if(q.type==="heading"){h+=`<div class="sub">${q.label}</div><p class="intro">${q.intro}</p>`;return;}
     q.sec=si; q.key=q.id||String(q.n); ALL.push(q);
     h+=`<div class="q" data-q="${q.key}" ${q.show?"hidden":""}>
-      <div class="l">${q.n?`<span class="n">${q.n}</span>`:""}${q.label}${q.req?'<span class="req">*</span>':""}</div>
+      <div class="l"><span class="n"></span>${q.label}${q.req?'<span class="req">*</span>':""}</div>
       ${q.hint?`<p class="hint">${q.hint}</p>`:""}${field(q)}<div class="msg"></div></div>`;
   });
   sec.innerHTML=h; form.appendChild(sec);
@@ -455,11 +465,12 @@ function refresh(){
       const v=val(q);w.querySelector("summary").textContent=v.length?v.join("، "):"اختر من القائمة…";
     }
   });
+  let k=0; ALL.forEach(q=>{const w=form.querySelector(`.q[data-q="${q.key}"]`); if(!w.hidden){k++; w.querySelector(".n").textContent=k;}});
   progress();
 }
 
 function check(q){
-  const w=form.querySelector(`.q[data-q="${q.key}"]`); if(w.hidden) return true;
+  const w=form.querySelector(`.q[data-q="${q.key}"]`); if(w.hidden||TEST_MODE) return true;
   const v=val(q), empty=Array.isArray(v)?!v.length:!v;
   let m="";
   if(q.req&&empty) m="هذا الحقل مطلوب.";
@@ -481,9 +492,10 @@ function validateSection(si){
 }
 
 const stepsEl=$("#steps");
-SECTIONS.forEach((s,i)=>{const b=document.createElement("button");b.type="button";b.textContent=(i+1)+". "+s.title;b.onclick=()=>{if(i<=cur||validateSection(cur))go(i);};stepsEl.appendChild(b);});
+SECTIONS.forEach((s,i)=>{const b=document.createElement("button");b.type="button";b.textContent=(i+1)+". "+s.title;b.onclick=()=>{if(i<=maxStep)go(i);};stepsEl.appendChild(b);});
+let maxStep=0;
 function go(i){
-  cur=i;
+  cur=i; maxStep=Math.max(maxStep,i);
   $$(".sec").forEach((s,k)=>s.classList.toggle("on",k===i));
   [...stepsEl.children].forEach((b,k)=>{b.classList.toggle("on",k===i);b.classList.toggle("done",k<i);});
   $("#back").hidden=i===0; $("#next").hidden=i===SECTIONS.length-1; $("#send").hidden=i!==SECTIONS.length-1;
@@ -512,12 +524,13 @@ function csvOf(list){
 const labelMap=()=>Object.fromEntries(ALL.map(q=>[q.key,(q.n?q.n+". ":"")+q.label]));
 
 $("#send").onclick=async()=>{
+  if(cur!==SECTIONS.length-1) return;
   for(let i=0;i<SECTIONS.length;i++){ if(!validateSection(i)){go(i);return;} }
   const btn=$("#send"); btn.disabled=true;
   await initCloud();
   const rec={id:(DB&&UID)?UID:Date.now().toString(36)+Math.random().toString(36).slice(2,6),ts:new Date().toISOString(),a:collectAnswers()};
-  let where="", err="";
-  if(CONFIG.endpoint){
+  let where=TEST_MODE?"test":"", err="";
+  if(CONFIG.endpoint&&!where){
     try{const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rec)});if(r.ok)where="server";else err="تعذر الإرسال إلى الخادم.";}
     catch(e){err="تعذر الاتصال بالخادم.";}
   }
@@ -530,15 +543,15 @@ $("#send").onclick=async()=>{
   form.hidden=true; $("#fnav").hidden=true; stepsEl.hidden=true; $(".bar").hidden=true;
   const ok=where!=="local";
   const d=$("#done"); d.hidden=false;
-  d.innerHTML=`<div class="done-box"><h2>${ok?"تم إرسال الاستمارة":"تم حفظ الاستمارة في هذا المتصفح"}</h2>
-   <p class="lead">${ok?(where==="cloud"?"شكرًا لك، حُفظت بياناتك في قاعدة البيانات. يمكنك تحديثها لاحقًا بإعادة تعبئة الاستمارة وإرسالها.":"شكرًا لك، تم تسجيل بياناتك."):((err?err+" ":"")+"حُفظت إجاباتك في هذا المتصفح فقط. نزّل نسخة منها وسلّمها للجهة المسؤولة.")}</p>
+  d.innerHTML=`<div class="done-box"><h2>${where==="test"?"وضع الاختبار: لم يُحفظ شيء":ok?"تم إرسال الاستمارة":"تم حفظ الاستمارة في هذا المتصفح"}</h2>
+   <p class="lead">${where==="test"?"لم تُكتب أي بيانات في قاعدة البيانات أو المتصفح. يمكنك تجربة الاستمارة مرة أخرى.":ok?(where==="cloud"?"شكرًا لك، حُفظت بياناتك في قاعدة البيانات. يمكنك تحديثها لاحقًا بإعادة تعبئة الاستمارة وإرسالها.":"شكرًا لك، تم تسجيل بياناتك."):((err?err+" ":"")+"حُفظت إجاباتك في هذا المتصفح فقط. نزّل نسخة منها وسلّمها للجهة المسؤولة.")}</p>
    <div class="row"><a class="btn" href="#home">عرض لوحة المؤشرات</a><button class="btn ghost" id="dj">تنزيل JSON</button><button class="btn ghost" id="dc">تنزيل CSV</button><button class="btn ghost" id="again">استمارة جديدة</button></div></div>`;
   $("#dj").onclick=()=>download("response.json","application/json",JSON.stringify({questions:labelMap(),responses:[rec]},null,2));
   $("#dc").onclick=()=>download("response.csv","text/csv;charset=utf-8",csvOf([rec]));
   $("#again").onclick=()=>{
     form.reset(); form.hidden=false; $("#fnav").hidden=false; stepsEl.hidden=false; $(".bar").hidden=false; d.hidden=true;
     ALL.forEach(q=>{form.querySelector(`.q[data-q="${q.key}"]`).classList.remove("bad");});
-    go(0); refresh();
+    maxStep=0; go(0); refresh();
   };
   window.scrollTo({top:0});
 };
@@ -741,7 +754,12 @@ function route(){
 }
 async function refreshAll(){await loadResponses();route();}
 addEventListener("hashchange",()=>{route();window.scrollTo(0,0);});
+if(TEST_MODE){$(".formwrap").insertAdjacentHTML("afterbegin",'<div class="banner" style="margin:0 0 20px"><span>وضع الاختبار مفعّل: الحقول الإلزامية غير مطلوبة ولا يُحفظ شيء عند الإرسال.</span></div>');}
+form.addEventListener("submit",e=>e.preventDefault());
 go(0); refresh();
 loadResponses().then(()=>{BOOT=false;route();});
 
 </script>
+
+</body>
+</html>
