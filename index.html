@@ -17,7 +17,7 @@
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.75;font-size:16px;font-variant-numeric:tabular-nums}
+body{direction:rtl;margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.75;font-size:16px;font-variant-numeric:tabular-nums}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:#fff}
 a{color:inherit}
 #site-header:empty,#site-footer:empty{display:none}
@@ -151,6 +151,7 @@ details.dd[open] summary{border-color:var(--accent)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
+<script>document.documentElement.lang="ar";document.documentElement.dir="rtl";</script>
 
 <div id="site-header"><!-- IT: place the organization header / navigation here --></div>
 
