@@ -1,0 +1,10 @@
+# never commit collected data or secrets
+responses*.json
+responses*.csv
+response*.json
+response*.csv
+*.xlsx
+.env
+.env.*
+.vercel
+node_modules

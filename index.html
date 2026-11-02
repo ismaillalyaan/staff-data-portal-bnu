@@ -6,6 +6,8 @@
 <style>[hidden]{display:none!important}img{max-width:100%}</style>
 <title>بيانات الهيئة المعاونة</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Changa:wght@500;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
@@ -214,6 +216,8 @@ details.dd[open] summary{border-color:var(--accent)}
     <div class="steps" id="steps"></div>
     <div class="bar"><i id="bar"></i></div>
     <form id="f" novalidate></form>
+    <div class="hpw" aria-hidden="true"><label for="hp">اترك هذا الحقل فارغًا</label><input id="hp" type="text" tabindex="-1" autocomplete="off"></div>
+    <p class="amsg" id="fmsg" role="alert"></p>
     <div class="fnav" id="fnav">
       <button type="button" class="btn ghost" id="back" hidden>السابق</button>
       <button type="button" class="btn" id="next">التالي</button>
@@ -532,12 +536,13 @@ $("#back").onclick=()=>go(cur-1);
 form.addEventListener("input",refresh); form.addEventListener("change",refresh);
 form.addEventListener("input",e=>{const w=e.target.closest(".q");if(w&&w.classList.contains("bad"))check(byKey(w.dataset.q));});
 
+const cleanV=v=>Array.isArray(v)?v.map(cleanV):typeof v==="string"?v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‪-‮⁦-⁩]/g,"").trim().slice(0,3000):v;
 function collectAnswers(){
-  const a={}; ALL.forEach(q=>{ if(!visible(q)) return; const v=val(q); if(Array.isArray(v)?v.length:v) a[q.key]=v; }); return a;
+  const a={}; ALL.forEach(q=>{ if(!visible(q)) return; const v=cleanV(val(q)); if(Array.isArray(v)?v.length:v) a[q.key]=v; }); return a;
 }
 function csvOf(list){
   const keys=ALL.filter(q=>list.some(r=>r.a&&r.a[q.key]!=null));
-  const Q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const Q=s=>{s=String(s); if(/^[=+\-@\t\r]/.test(s)) s="'"+s; return '"'+s.replace(/"/g,'""')+'"';};
   const head=["المعرف","التاريخ",...keys.map(q=>(q.n?q.n+". ":"")+q.label)];
   const rows=list.map(r=>[r.id,r.ts,...keys.map(q=>{const v=r.a[q.key];return v==null?"":Array.isArray(v)?v.join(" | "):v;})]);
   return "﻿"+[head,...rows].map(r=>r.map(Q).join(",")).join("\n");
@@ -546,6 +551,14 @@ const labelMap=()=>Object.fromEntries(ALL.map(q=>[q.key,(q.n?q.n+". ":"")+q.labe
 
 $("#send").onclick=async()=>{
   if(cur!==SECTIONS.length-1) return;
+  const fm=t=>{const m=$("#fmsg"); if(m) m.textContent=t||"";}; fm("");
+  if($("#hp").value) return;
+  if(Date.now()-formOpened<15000){fm("راجع إجاباتك ثم أعد الضغط على إرسال.");return;}
+  try{
+    const log=(JSON.parse(sessionStorage.getItem("sendlog")||"[]")).filter(t=>Date.now()-t<600000);
+    if(log.length>=3){fm("تم تجاوز عدد مرات الإرسال المسموح. حاول بعد قليل.");return;}
+    log.push(Date.now()); sessionStorage.setItem("sendlog",JSON.stringify(log));
+  }catch(e){}
   for(let i=0;i<SECTIONS.length;i++){ if(!validateSection(i)){go(i);return;} }
   const btn=$("#send"); btn.disabled=true;
   await initCloud();
@@ -560,13 +573,13 @@ $("#send").onclick=async()=>{
     try{await DB.doc(COLL+"/"+UID).set(rec);where="cloud";}
     catch(e){err="تعذر الحفظ في قاعدة البيانات."; if(e&&e.code==="quota_exceeded")err="قاعدة البيانات ممتلئة.";}
   }
-  if(!where){const all=lsGet().filter(x=>x.id!==rec.id);all.push(rec);lsSet(all);where="local";}
+  if(!where){where="local";}
   btn.disabled=false;
   form.hidden=true; $("#fnav").hidden=true; stepsEl.hidden=true; $(".bar").hidden=true;
   const ok=where!=="local";
   const d=$("#done"); d.hidden=false;
-  d.innerHTML=`<div class="done-box"><h2>${ok?"تم إرسال الاستمارة":"تم حفظ الاستمارة في هذا المتصفح"}</h2>
-   <p class="lead">${ok?(where==="cloud"?"شكرًا لك، حُفظت بياناتك في قاعدة البيانات. يمكنك تحديثها لاحقًا بإعادة تعبئة الاستمارة وإرسالها.":"شكرًا لك، تم تسجيل بياناتك."):((err?err+" ":"")+"حُفظت إجاباتك في هذا المتصفح فقط. نزّل نسخة منها وسلّمها للجهة المسؤولة.")}</p>
+  d.innerHTML=`<div class="done-box"><h2>${ok?"تم إرسال الاستمارة":"لم يتصل الموقع بخادم الحفظ بعد"}</h2>
+   <p class="lead">${ok?(where==="cloud"?"شكرًا لك، حُفظت بياناتك في قاعدة البيانات. يمكنك تحديثها لاحقًا بإعادة تعبئة الاستمارة وإرسالها.":"شكرًا لك، تم تسجيل بياناتك."):((err?err+" ":"")+"لم تُحفظ إجاباتك على أي خادم ولم تُخزَّن في هذا المتصفح. نزّل نسخة منها الآن وسلّمها للجهة المسؤولة.")}</p>
    <div class="row"><button class="btn ghost" id="dj">تنزيل JSON</button><button class="btn ghost" id="dc">تنزيل CSV</button><button class="btn ghost" id="again">استمارة جديدة</button></div></div>`;
   $("#dj").onclick=()=>download("response.json","application/json",JSON.stringify({questions:labelMap(),responses:[rec]},null,2));
   $("#dc").onclick=()=>download("response.csv","text/csv;charset=utf-8",csvOf([rec]));
@@ -776,6 +789,11 @@ function route(){
 async function refreshAll(){await loadResponses();route();}
 
 form.addEventListener("submit",e=>e.preventDefault());
+const formOpened=Date.now();
+form.setAttribute("autocomplete","off");
+$$("input[type=text],input[type=email],input[type=tel]",form).forEach(i=>{i.maxLength=300;});
+$$("textarea",form).forEach(t=>{t.maxLength=3000;});
+$$("input[type=number]",form).forEach(i=>{if(!i.max)i.max="100000";if(!i.min)i.min="0";});
 go(0); refresh();
 loadResponses().then(()=>{BOOT=false;route();});
 
