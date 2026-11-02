@@ -74,7 +74,7 @@ const CONFIG = {
 | المتغير | القيمة |
 |---|---|
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | قيمة `client_email` من ملف المفتاح |
-| `GOOGLE_PRIVATE_KEY` | قيمة `private_key` من الملف كاملة (بما فيها BEGIN/END) |
+| `GOOGLE_PRIVATE_KEY` | قيمة `private_key` من الملف كاملة بين علامتي الاقتباس، من `-----BEGIN PRIVATE KEY-----` إلى `-----END PRIVATE KEY-----`، كما هي بما فيها `\n` (هذا مفتاح واحد طويل لا عدة مفاتيح) |
 | `SHEET_ID` | المعرّف بين `/d/` و`/edit` في رابط الجدول |
 | `ALLOWED_ORIGINS` | اختياري: نطاق موقعك، مثل `https://your-site.vercel.app` |
 

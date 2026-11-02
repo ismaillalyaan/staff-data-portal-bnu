@@ -33,7 +33,9 @@ async function accessToken() {
   const nowMs = Date.now();
   if (tokenCache.value && tokenCache.exp - 60000 > nowMs) return tokenCache.value;
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = (process.env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+  let key = process.env.GOOGLE_PRIVATE_KEY || "";
+  if (process.env.GOOGLE_PRIVATE_KEY_BASE64) key = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, "base64").toString("utf8");
+  key = key.trim().replace(/^["']|["']$/g, "").replace(/\\n/g, "\n").trim();
   if (!email || !key) throw new Error("missing credentials");
   const jwt = makeJwt(email, key, Math.floor(nowMs / 1000));
   const r = await fetch("https://oauth2.googleapis.com/token", {
