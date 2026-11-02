@@ -96,7 +96,7 @@ const CONFIG = {
 
 - `index.html` الصفحة كاملة (CSS وJS وشعار مضمّنة).
 - `api/submit.js` دالة الحفظ في Google Sheets، و`api/questions.json` ترتيب الأعمدة.
-- `vercel.json` ترويسات الأمان، و`robots.txt` منع الفهرسة.
+- `vercel.json` ترويسات الأمان، والفهرسة ممنوعة عبر ترويسة `X-Robots-Tag` ووسم `noindex`.
 - `SECURITY.md` ما هو مطبّق وما يلزم من جهة الخادم.
 - `later/auth.js` نموذج الحسابات الأولي (غير مفعّل).
 
