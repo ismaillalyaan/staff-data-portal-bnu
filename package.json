@@ -1,0 +1,5 @@
+{
+  "name": "staff-data-portal-bnu",
+  "private": true,
+  "engines": { "node": ">=18" }
+}
