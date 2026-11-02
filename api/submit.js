@@ -9,7 +9,7 @@ const HEADERS = ["وقت الاستلام", "المعرف", ...QUESTIONS.map(q =
 
 const MAX_BODY = 100 * 1024;
 const MAX_STR = 3000;
-const RATE_MAX = 5;
+const RATE_MAX = Number(process.env.RATE_MAX) || 60; // campus networks share one public IP, so keep this generous
 const RATE_WINDOW = 10 * 60 * 1000;
 const hits = new Map();
 let tokenCache = { value: "", exp: 0 };
