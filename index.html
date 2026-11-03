@@ -113,6 +113,18 @@ a{color:inherit}
 .tbl td{padding:11px 10px;border-bottom:1px solid var(--line)}
 .tbl .num{text-align:left}
 .tbl-wrap{overflow-x:auto}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:12px;margin:30px 0 8px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px 10px;background:#fff;border:1px solid var(--line);border-radius:var(--r);cursor:pointer;font:inherit;color:var(--ink);text-align:center;box-shadow:var(--shadow)}
+.tile .ti{font-size:1.7rem;line-height:1.2}
+.tile b{font-size:.82rem;line-height:1.4;font-weight:700}
+.tile small{color:var(--muted);font-size:.78rem}
+.tile.on{border-color:var(--accent);background:var(--soft);outline:2px solid var(--accent)}
+.pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:22px 0 6px}
+.pill{padding:8px 16px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:.9rem;cursor:pointer;color:var(--ink)}
+.pill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dh{text-align:center;font-family:var(--display);color:var(--title);font-size:1.5rem;margin:18px 0 6px}
+.kp-s{margin:18px 0 22px}.g-s{margin-bottom:8px}
+
 .banner{border:1px solid #f1d9a8;border-radius:var(--r);background:var(--warn-bg);padding:12px 16px;margin:32px 0 0;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:.9rem}
 .empty{border:2px dashed var(--accent);border-radius:var(--r);padding:44px 24px;text-align:center;margin:40px 0;background:var(--soft)}
 .empty h2{margin:0 0 6px;font-family:var(--display);font-weight:800;color:var(--title)}
@@ -275,18 +287,16 @@ const SECTIONS = [
  {n:7,label:"الكلية التي تعمل بها",type:"select",req:true,opts:COLLEGES.map(c=>c[0])},
  ...progQs,
  {n:18,label:"القسم العلمي أو التخصص الدقيق",type:"text",req:true,hint:"اكتب اسم القسم أو التخصص كما هو مثبت في قرار التعاقد."},
- {n:19,label:"هل تعمل في أكثر من برنامج أو قسم؟",type:"radio",req:true,opts:YN},
+ {n:19,label:"هل تعمل في أكثر من كلية؟",type:"radio",req:true,opts:YN},
  {n:20,label:"إذا كانت الإجابة نعم، اذكر الكليات الأخرى",type:"multiselect",req:true,opts:COLLEGES.map(c=>c[0]),show:{q:19,in:["نعم"]},hint:"اسم الكلية الأخرى (الكليات)."},
  {id:"20b",label:"البرامج أو الأقسام الأخرى",type:"textarea",show:{q:19,in:["نعم"]}}
 ]},
 {title:"البيانات الوظيفية", qs:[
  {n:21,label:"الدرجة الوظيفية الحالية",type:"radio",req:true,opts:["معيد","مدرس مساعد"]},
  {n:22,label:"تاريخ التعيين أو بدء العمل بالجامعة",type:"date",req:true},
- {n:23,label:"نوع التعاقد",type:"select",req:true,opts:["تعيين","تعاقد","ندب أو إعارة"]},
- {id:"23b",label:"اسم الجهة",type:"text",req:true,show:{q:23,in:["ندب أو إعارة"]},hint:"في حالة الندب أو الإعارة يُذكر اسم الجهة."},
- {n:24,label:"الحالة الوظيفية الحالية",type:"radio",req:true,opts:["على رأس العمل","إجازة"]},
- {n:25,label:"المهام التي تؤديها حاليًّا",type:"checks",req:true,opts:["تدريس عملي أو تطبيقي","تدريب معملي أو إكلينيكي","الإشراف على التدريب الميداني","أعمال إدارية أو تنظيمية","أخرى"]},
- {n:26,label:"المقررات التي تشارك في تدريسها حاليًّا",type:"textarea",req:true,hint:"اكتب كل مقرر في سطر مستقل."},
+ {n:23,label:"نوع التعاقد",type:"select",req:true,opts:["تعيين","تعاقد كلي","تعاقد جزئي","ندب"]},
+ {id:"23b",label:"اسم الجهة",type:"text",req:true,show:{q:23,in:["ندب"]},hint:"في حالة الندب يُذكر اسم الجهة."},
+ {n:26,label:"المقررات التي تشارك في تدريسها حاليًّا (كود المقرر واسمه)",type:"textarea",req:true,hint:"اكتب كود المقرر ثم اسمه، كل مقرر في سطر مستقل. مثال: CS101 - مقدمة في البرمجة."},
  {n:27,label:"العبء التدريسي خلال الفصل الدراسي (عدد الساعات أسبوعيًّا)",type:"number",req:true,min:0,max:35,hint:"الحد الأقصى 35 ساعة أسبوعيًّا."},
  {id:"27b",label:"المجموعات أو الشعب (اختياري)",type:"text"}
 ]},
@@ -298,40 +308,34 @@ const SECTIONS = [
  {n:32,label:"التخصص العام",type:"text",req:true},
  {n:33,label:"التخصص الدقيق",type:"text",req:true},
  {n:34,label:"أعلى درجة علمية حصلت عليها",type:"select",req:true,opts:["بكالوريوس","دبلوم","ماجستير","دكتوراه"]},
+ {id:"34b",label:"تاريخ الحصول على أعلى درجة علمية",type:"date",req:true},
+ {id:"34c",label:"الجهة المانحة لأعلى درجة علمية",type:"text",req:true},
  {n:35,label:"هل تدرس حاليًّا للحصول على درجة علمية؟",type:"radio",req:true,opts:YN},
  {n:36,label:"حدد الدرجة العلمية",type:"select",req:true,opts:["ماجستير","دكتوراه"],show:{q:35,in:["نعم"]}},
- {n:37,label:"الجامعة أو الجهة التي تدرس بها",type:"text",req:true,list:UNIS,show:{q:35,in:["نعم"]},hint:"اختر من القائمة أو اكتب الاسم."},
+ {n:37,label:"الجامعة أو الجهة التي تدرس بها",type:"select",req:true,opts:[...UNIS,"أخرى"],show:{q:35,in:["نعم"]}},
+ {id:"37b",label:"اكتب اسم الجامعة أو الجهة",type:"text",req:true,show:{q:37,in:["أخرى"]}},
  {n:38,label:"تاريخ التسجيل أو بدء الدراسة",type:"date",req:true,show:{q:35,in:["نعم"]}},
  {n:39,label:"عنوان الرسالة أو موضوع البحث",type:"textarea",req:true,show:{q:35,in:["نعم"]}},
  {n:40,label:"اسم المشرف (المشرف الرئيسي)",type:"text",req:true,show:{q:35,in:["نعم"]}},
  {n:41,label:"المرحلة الحالية للدراسة",type:"select",req:true,show:{q:35,in:["نعم"]},opts:["مقررات دراسية","إعداد خطة البحث","جمع البيانات أو إجراء التجارب","كتابة الرسالة","تقديم الرسالة للمناقشة","أخرى"],hint:"اختر مرحلة واحدة."},
+ {id:"41c",label:"هل حصلت على التفرغ العلمي من جامعة بنها الأهلية؟",type:"radio",req:true,opts:YN},
+ {id:"41d",label:"تاريخ بداية التفرغ",type:"date",req:true,show:{q:"41c",in:["نعم"]}},
  {id:"41b",label:"تاريخ المناقشة المتوقع (إن وجد)",type:"date",show:{q:35,in:["نعم"]}}
 ]},
 {title:"الخبرات والأنشطة الأكاديمية", qs:[
  {n:42,label:"هل شاركت في تدريس مقررات بالجامعة؟",type:"radio",req:true,opts:YN},
  {n:43,label:"اذكر المقررات أو طبيعة مشاركتك في التدريس",type:"textarea",req:true,show:{q:42,in:["نعم"]}},
- {n:44,label:"هل شاركت في الإشراف على مشروعات تخرج أو أنشطة طلابية؟",type:"radio",req:true,opts:YN},
- {n:45,label:"اذكر المشروعات أو الأنشطة ودورك فيها",type:"textarea",req:true,show:{q:44,in:["نعم"]}},
- {n:46,label:"مجالات اهتمامك البحثي",type:"textarea"},
- {n:47,label:"رابط الملف البحثي أو Google Scholar أو ORCID، إن وجد",type:"text"}
 ]},
 {title:"الأبحاث والمشروعات والإنجازات", intro:"يمكن إدراج أكثر من إنجاز في الحقول المفتوحة، مع تسجيل كل إنجاز في سطر مستقل وذكر الاسم والسنة والجهة والدور أو النتيجة.", qs:[
  {n:48,label:"هل لديك أبحاث علمية منشورة؟",type:"radio",req:true,opts:YN},
  {n:49,label:"عدد الأبحاث المنشورة",type:"select",req:true,opts:["بحث واحد","من 2 إلى 5 أبحاث","من 6 إلى 10 أبحاث","أكثر من 10 أبحاث"],show:{q:48,in:["نعم"]}},
  {n:50,label:"بيانات الأبحاث المنشورة",type:"textarea",show:{q:48,in:["نعم"]},hint:"يفضل ذكر عنوان البحث، المجلة، السنة، رقم DOI أو الرابط."},
- {n:51,label:"هل شاركت في مشروع بحثي أو تطبيقي أو ابتكاري؟",type:"radio",req:true,opts:YN},
- {n:52,label:"اذكر المشروعات التي شاركت فيها",type:"textarea",req:true,show:{q:51,in:["نعم"]},hint:"لكل مشروع: اسم المشروع، الجهة، السنة، دورك، وحالة التنفيذ أو النتيجة."},
- {n:53,label:"هل حصلت على جائزة أو تكريم عن بحث أو مشروع أو إنجاز أكاديمي؟",type:"radio",req:true,opts:YN},
- {n:54,label:"بيانات الجوائز أو التكريمات",type:"textarea",req:true,show:{q:53,in:["نعم"]},hint:"اذكر اسم الجائزة، الجهة المانحة، المستوى أو الترتيب، السنة، واسم البحث أو المشروع المرتبط بها."},
+ {n:51,label:"هل شاركت في مشروع بحثي أو تطبيقي أو ابتكاري بالجامعة؟",type:"radio",req:true,opts:YN},
+ {n:52,label:"اذكر المشروعات التي شاركت فيها ودور الباحث",type:"textarea",req:true,show:{q:51,in:["نعم"]},hint:"لكل مشروع: اسم المشروع، الجهة، السنة، دورك، وحالة التنفيذ أو النتيجة."},
  {n:55,label:"هل حصلت على دعم من جهة داخل الجامعة أو خارجها؟",type:"radio",req:true,opts:YN},
- {n:56,label:"بيانات الدعم الذي حصلت عليه",type:"textarea",req:true,show:{q:55,in:["نعم"]},hint:"اذكر الجهة الداعمة، نوع الدعم (مالي أو عيني أو تدريبي)، قيمته إن أمكن، الغرض، والسنة."},
+ {n:56,label:"قيمة الدعم الذي حصلت عليه واسم الجهة الداعمة",type:"textarea",req:true,show:{q:55,in:["نعم"]},hint:"اذكر قيمة الدعم واسم الجهة الداعمة."},
  {n:57,label:"هل قمت بتسجيل أو إيداع براءة اختراع؟",type:"radio",req:true,opts:YN},
  {n:58,label:"بيانات براءة الاختراع أو الطلب",type:"textarea",req:true,show:{q:57,in:["نعم"]},hint:"اذكر عنوان الاختراع، رقم الطلب أو التسجيل إن وجد، جهة الإيداع، تاريخ الإيداع، وحالة الطلب (مودع، قيد الفحص، ممنوح)."},
- {n:59,label:"هل لديك حقوق ملكية فكرية أخرى؟",type:"checks",opts:["تصميم صناعي","علامة تجارية","برنامج أو تطبيق","مصنف أو مادة تعليمية","نموذج صناعي","أخرى","لا يوجد"]},
- {n:60,label:"اذكر تفاصيل حقوق الملكية الفكرية أو الروابط المتاحة",type:"textarea",hint:"اذكر العنوان، الجهة المالكة أو المشاركة، والسنة."},
- {n:61,label:"هل شاركت في تأسيس شركة ناشئة أو مشروع قائم على المعرفة أو البحث؟",type:"radio",req:true,opts:YN},
- {n:62,label:"اذكر اسم الشركة أو المشروع ودورك وحالته الحالية",type:"textarea",req:true,show:{q:61,in:["نعم"]}},
- {n:63,label:"روابط أو مستندات داعمة للإنجازات (اختياري)",type:"textarea",hint:"أدرج روابط صفحات الجوائز أو المشروعات أو براءات الاختراع أو الملفات المنشورة. تجنب إضافة مستندات تتضمن بيانات شخصية غير لازمة."},
  {type:"heading",label:"محاور إضافية ذات أولوية للدراسات العليا والبحث العلمي",intro:"تستكمل هذه البيانات عند انطباقها، وتهدف إلى تحديد الاحتياجات الفعلية للباحثين وربطها بتخطيط برامج الدراسات العليا والبحث ومصادر الدعم."},
  {id:"ax1",label:"أ. بيانات القيد الحالي",type:"textarea",hint:"لمن يدرس درجة علمية: اذكر الدرجة، والكلية، والبرنامج، والقسم، ورقم القيد إن وجد، وسنة الالتحاق. (اختياري عند عدم الانطباق)"},
  {id:"ax2",label:"ب. موضوع الرسالة أو البحث",type:"textarea",hint:"اكتب العنوان الحالي وملخصًا موجزًا للمشكلة البحثية والأهداف والمنهج أو مجال التطبيق. (اختياري عند عدم الانطباق)"},
@@ -779,7 +783,7 @@ $("#fileIn").onchange=async e=>{
 /* ===== لوحة الإدارة (محمية بكلمة مرور على الخادم) ===== */
 let ADMIN=false, lastPage="";
 const isAdmin=()=>ADMIN, getSession=()=>null;
-const ADM={records:[],settings:null,note:""};
+const ADM={records:[],settings:null,note:"",view:"all",tab:0};
 
 async function api(path,body){
   const o={credentials:"same-origin",cache:"no-store"};
@@ -864,13 +868,92 @@ function renderAdmin(){
   renderDash();
 }
 
-/* لوحة المؤشرات (نفس رسوم النسخة السابقة) */
+/* لوحة المؤشرات: عرض عام + عرض لكل كلية (أيقونات) */
+const CICON=["🩺","🦷","🏃","🐾","⚙️","💻","📊","🎨","⚡","🧬"];
+const CSHORT=c=>c.replace(/^كلية\s+/,"");
+const sum=a=>a.reduce((s,x)=>s+x,0);
+const mapRows=()=>ADM.records.map(r=>({id:r.id,ts:r.ts,a:Object.fromEntries(Object.entries(r.a).map(([k,v])=>["q"+k,v]))}));
+const kp=(v,l)=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`;
+const kps=a=>`<div class="kpis kp-s">${a.map(x=>kp(x[0],x[1])).join("")}</div>`;
+const g2=a=>`<div class="grid2 g-s">${a.join("")}</div>`;
+
+function dashPanes(rs,all){
+  const n=rs.length, H=hours(rs), P0=x=>P(x);
+  const hByCol=COLLEGES.map(([c])=>{const r=rs.filter(x=>x.a.q7===c);const h=hours(r);return [c,r.length,sum(h),h.length?mean(h):0,r];});
+  const days=new Map(); rs.forEach(r=>{const d=String(r.ts||"").slice(5,10); if(d) days.set(d,(days.get(d)||0)+1);});
+  const dayEnt=[...days].sort((a,b)=>a[0]<b[0]?-1:1).slice(-10);
+  const buckets=[["1–6",1,6],["7–12",7,12],["13–18",13,18],["19–24",19,24],["25–35",25,35]].map(([l,a,b])=>[l,H.filter(x=>x>=a&&x<=b).length]);
+  const avgBy=k=>tally(k,rs).map(([v])=>{const h=hours(rs.filter(r=>r.a[k]===v));return [v,Math.round((h.length?mean(h):0)*10)/10];}).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
+  const ach=[["أبحاث منشورة","q48"],["مشروعات بحثية أو تطبيقية","q51"],["دعم من جهة داخل/خارج الجامعة","q55"],["براءات اختراع","q57"],["تفرغ علمي","q41c"],["يدرسون حاليًّا","q35"]].map(([l,k])=>[l,cnt(k,"نعم",rs)]).sort((a,b)=>b[1]-a[1]);
+  const P1={};
+  P1.t="نظرة عامة";
+  P1.h=kps([[n,"الاستجابات"],[P0(share("q35","نعم",rs)),"يدرسون حاليًّا"],[P0(share("q48","نعم",rs)),"لديهم أبحاث منشورة"],[P0(share("q41c","نعم",rs)),"حاصلون على تفرغ علمي"]])+
+    g2([
+      all?fig("المشاركون حسب الكلية","عدد الاستجابات",hbars(tally("q7",rs),n,10)):"",
+      fig("الدرجة الوظيفية","معيد أم مدرس مساعد",donut(tally("q21",rs))),
+      fig("نوع التعاقد","",donut(tally("q23",rs))),
+      fig("الاستجابات حسب اليوم","آخر 10 أيام فيها استجابات",dayEnt.length?cols(dayEnt):'<div class="none">لا توجد بيانات.</div>')
+    ].filter(Boolean));
+  const P2={t:"العبء التدريسي"};
+  P2.h=kps([[sum(H),"إجمالي الساعات أسبوعيًّا"],[H.length?N1(mean(H)):"—","متوسط الساعات للفرد"],[H.length?Math.max(...H):"—","أعلى عبء (ساعة)"],[H.filter(x=>x>=20).length,"عبء 20 ساعة فأكثر"]])+
+    g2([
+      all?fig("إجمالي الساعات الأسبوعية لكل كلية","مجموع ساعات أعضاء الهيئة المعاونة",hbars(hByCol.map(c=>[CSHORT(c[0]),c[2]]).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]),0,10)):"",
+      all?fig("متوسط الساعات للفرد في كل كلية","ساعة أسبوعيًّا",hbars(hByCol.map(c=>[CSHORT(c[0]),Math.round(c[3]*10)/10]).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]),0,10)):"",
+      fig("توزيع العبء التدريسي","عدد الأفراد في كل فئة ساعات",cols(buckets)),
+      fig("متوسط الساعات حسب الدرجة الوظيفية","ساعة أسبوعيًّا",hbars(avgBy("q21"),0,6)),
+      fig("متوسط الساعات حسب نوع التعاقد","ساعة أسبوعيًّا",hbars(avgBy("q23"),0,6))
+    ].filter(Boolean))+
+    (all?`<div class="fig" style="margin-top:24px"><h3>مقارنة الكليات</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>الكلية</th><th class="num">الاستجابات</th><th class="num">إجمالي الساعات</th><th class="num">متوسط الساعات</th><th class="num">يدرسون حاليًّا</th><th class="num">أبحاث منشورة</th></tr></thead><tbody>${hByCol.map(c=>c[1]?`<tr><td>${esc(c[0])}</td><td class="num">${c[1]}</td><td class="num">${c[2]}</td><td class="num">${N1(c[3])}</td><td class="num">${P0(share("q35","نعم",c[4]))}</td><td class="num">${P0(share("q48","نعم",c[4]))}</td></tr>`:"").join("")}</tbody></table></div></div>`:"");
+  const P3={t:"المؤهلات والدراسة"};
+  P3.h=g2([
+    fig("أعلى درجة علمية","",cols(["بكالوريوس","دبلوم","ماجستير","دكتوراه"].map(d=>[d,cnt("q34",d,rs)]))),
+    fig("هل يدرسون حاليًّا؟","",donut(tally("q35",rs))),
+    fig("الدرجة قيد الدراسة","بين من يدرسون",donut(tally("q36",rs))),
+    fig("المرحلة الحالية للدراسة","",hbars(tally("q41",rs),n,6)),
+    fig("الجامعة التي يدرسون بها","",hbars(tally("q37",rs),n,6)),
+    fig("التفرغ العلمي من جامعة بنها الأهلية","",donut(tally("q41c",rs)))
+  ]);
+  const P4={t:"الأبحاث والإنجازات"};
+  P4.h=g2([
+    fig("الإنجازات","عدد الأفراد في كل بند",hbars(ach,n,6)),
+    fig("الأبحاث المنشورة","عدد الأبحاث لمن لديهم أبحاث",donut(tally("q49",rs))),
+    fig("المشاركة في التدريس بالجامعة","",donut(tally("q42",rs))),
+    fig("الدعم الخارجي","",donut(tally("q55",rs)))
+  ]);
+  const P5={t:"المهارات والتدريب"};
+  P5.h=g2([
+    fig("المهارات المتاحة","الأكثر تكرارًا",hbars(tally("q64",rs),n,8)),
+    fig("الاحتياجات التدريبية","",hbars(tally("q66",rs),n,8)),
+    fig("الرغبة في برامج الدراسات العليا","",donut(tally("q68",rs))),
+    fig("مجالات المشاركة المفضلة","",hbars(tally("q69",rs),n,6))
+  ]);
+  return [P1,P2,P3,P4,P5];
+}
+
 function renderDash(){
   const root=$("#homeBody");
   if(!ADM.records.length){root.innerHTML='<div class="empty"><h2>لا توجد استجابات بعد</h2><p>ستظهر المؤشرات هنا بمجرد وصول أول استمارة.</p></div>';return;}
-  REAL=ADM.records.map(r=>({id:r.id,ts:r.ts,a:Object.fromEntries(Object.entries(r.a).map(([k,v])=>["q"+k,v]))}));
-  DEMO_ON=false; BOOT=false; LOCKED=false; LOADING=false; SOURCE="sheet";
-  syncResp(); renderHome();
+  const rows=mapRows();
+  const view=ADM.view||"all", tab=ADM.tab||0;
+  const col=view==="all"?null:COLLEGES.find(c=>c[0]===view);
+  const rs=col?rows.filter(r=>r.a.q7===view):rows;
+  const tiles=`<div class="tiles"><button type="button" class="tile ${!col?"on":""}" data-v="all"><span class="ti">📈</span><b>التحليل العام</b><small>${rows.length}</small></button>`+
+    COLLEGES.map((c,i)=>`<button type="button" class="tile ${col&&col[0]===c[0]?"on":""}" data-v="${esc(c[0])}"><span class="ti">${CICON[i]||"🏛️"}</span><b>${esc(CSHORT(c[0]))}</b><small>${rows.filter(r=>r.a.q7===c[0]).length}</small></button>`).join("")+`</div>`;
+  let body;
+  if(!rs.length) body='<div class="empty"><h2>لا توجد استجابات لهذه الكلية بعد</h2></div>';
+  else{
+    const panes=dashPanes(rs,col?null:"all");
+    if(col){ // programs for the selected college
+      const pk="q"+(8+COLLEGES.indexOf(col));
+      panes[0].h=panes[0].h.replace(/<\/div>$/,"")+fig("البرنامج الأكاديمي","",hbars(tally(pk,rs),rs.length,8))+"</div>";
+    }
+    const t=Math.min(tab,panes.length-1);
+    body=`<div class="pills">${panes.map((p,i)=>`<button type="button" class="pill ${i===t?"on":""}" data-t="${i}">${p.t}</button>`).join("")}</div>`+
+         `<h2 class="dh">${col?esc(col[0]):"التحليل العام لكل الكليات"}</h2>`+panes[t].h;
+  }
+  root.innerHTML=tiles+body;
+  $$(".tile",root).forEach(b=>b.onclick=()=>{ADM.view=b.dataset.v;ADM.tab=0;renderDash();});
+  $$(".pill",root).forEach(b=>b.onclick=()=>{ADM.tab=+b.dataset.t;renderDash();});
 }
 addEventListener("hashchange",()=>{route();window.scrollTo(0,0);});
 
