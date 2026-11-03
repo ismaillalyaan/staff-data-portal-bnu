@@ -69,9 +69,22 @@ async function sheets(suffix, opts) {
 const values = range => "/values/" + encodeURIComponent(range);
 
 let headerOk = false;
+// A new Google Sheet has only 26 columns; the form needs one per question.
+async function ensureColumns() {
+  const meta = await sheets("?fields=" + encodeURIComponent("sheets.properties(sheetId,title,gridProperties)"));
+  const p = meta.sheets && meta.sheets[0] && meta.sheets[0].properties;
+  const need = HEADERS.length + 5;
+  if (p && p.gridProperties && p.gridProperties.columnCount < need) {
+    await sheets(":batchUpdate", { method: "POST", body: JSON.stringify({ requests: [{
+      updateSheetProperties: { properties: { sheetId: p.sheetId, gridProperties: { columnCount: need } }, fields: "gridProperties.columnCount" }
+    }] }) });
+  }
+}
+
 async function appendRow(row) {
   const q = "?valueInputOption=RAW&insertDataOption=INSERT_ROWS";
   if (!headerOk) {
+    await ensureColumns();
     const first = await sheets(values("A1:A1"));
     if (!first.values || !first.values.length) {
       await sheets(values("A1:A1") + ":append" + q, { method: "POST", body: JSON.stringify({ values: [HEADERS] }) });
