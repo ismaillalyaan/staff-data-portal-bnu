@@ -49,7 +49,7 @@ module.exports = async (req, res) => {
     const raw = Object.prototype.hasOwnProperty.call(body.a, q.key) ? body.a[q.key] : "";
     const v = clean(raw);
     if (v) known++;
-    row.push(v);
+    row.push(v || "-");
   }
   if (!known) return L.send(res, 400, { ok: false });
 

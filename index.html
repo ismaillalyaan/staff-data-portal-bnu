@@ -432,7 +432,7 @@ function field(q){
   switch(q.type){
     case "text": case "email": case "tel":
       return `<input type="${q.type}" name="${nm}" ${q.list?`list="dl${id}"`:""} ${q.type==="tel"?'inputmode="tel" dir="ltr" style="text-align:right"':""} ${q.type==="email"?'dir="ltr" style="text-align:right"':""}>`+(q.list?`<datalist id="dl${id}">${q.list.map(x=>`<option value="${esc(x)}">`).join("")}</datalist>`:"");
-    case "number": return `<input type="number" name="${nm}" ${q.min!=null?`min="${q.min}"`:""} ${q.max!=null?`max="${q.max}"`:""} inputmode="numeric">`;
+    case "number": return `<input type="text" name="${nm}" inputmode="numeric" dir="ltr" style="text-align:right" autocomplete="off">`;
     case "date": return `<input type="date" name="${nm}">`;
     case "textarea": return `<textarea name="${nm}"></textarea>`;
     case "select": return `<select name="${nm}"><option value="">اختر…</option>${o.map(x=>`<option>${esc(x)}</option>`).join("")}</select>`;
@@ -458,6 +458,7 @@ SECTIONS.forEach((s,si)=>{
 });
 
 function names(q){return form.querySelectorAll(`[name="q${q.key}"]`);}
+const toEn=s=>String(s).replace(/[\u0660-\u0669]/g,c=>c.charCodeAt(0)-0x0660).replace(/[\u06F0-\u06F9]/g,c=>c.charCodeAt(0)-0x06F0).replace(/\u066B/g,".").replace(/[\u066C\u060C]/g,"");
 function val(q){
   const els=names(q); if(!els.length) return "";
   const t=els[0];
@@ -467,7 +468,7 @@ function val(q){
     const ot=form.querySelector(`[name="q${q.key}_other"]`);
     return v.map(x=>x==="أخرى"&&ot&&ot.value.trim()?"أخرى: "+ot.value.trim():x);
   }
-  return t.value.trim();
+  return ((t.type==="tel"||t.getAttribute("inputmode")==="numeric")?toEn(t.value):t.value).trim();
 }
 const byKey=k=>ALL.find(x=>x.key===String(k));
 function visible(q){const w=form.querySelector(`.q[data-q="${q.key}"]`);return !w.hidden;}
@@ -528,6 +529,7 @@ function progress(){
 }
 $("#next").onclick=()=>{if(validateSection(cur))go(cur+1);};
 $("#back").onclick=()=>go(cur-1);
+form.addEventListener("input",e=>{const t=e.target; if(t&&t.matches&&t.matches("input[inputmode=numeric],input[type=tel]")){const n=toEn(t.value); if(n!==t.value) t.value=n;}},true);
 form.addEventListener("input",refresh); form.addEventListener("change",refresh);
 form.addEventListener("input",e=>{const w=e.target.closest(".q");if(w&&w.classList.contains("bad"))check(byKey(w.dataset.q));});
 

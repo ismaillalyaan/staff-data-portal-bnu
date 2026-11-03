@@ -90,7 +90,7 @@ async function readRecords() {
     const a = {};
     QUESTIONS.forEach((q, i) => {
       const v = row[2 + i];
-      if (v === undefined || v === "") return;
+      if (v === undefined || v === "" || v === "-") return;
       a[q.key] = MULTI.has(String(q.key)) ? String(v).split(" | ") : v;
     });
     out.push({ id: row[1] || "", ts: String(row[0] || "").replace(" ", "T"), a });
