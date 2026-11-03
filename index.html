@@ -374,7 +374,7 @@ let REAL=[], DEMO=[], DEMO_ON=false, RESP=[], SOURCE="local";
 let DB=null, UID=null, CAN_ADMIN=false, LOCKED=false, LOADING=false, SLOW=false, BOOT=true;
 let started=false, slowTimer=null, PSESS=null;
 const syncResp=()=>{RESP=REAL.concat(DEMO_ON?DEMO:[]);};
-const srcName=()=>({cloud:"قاعدة البيانات",server:"الخادم",local:"هذا المتصفح",error:"تعذر الاتصال"})[SOURCE]||"هذا المتصفح";
+const srcName=()=>({cloud:"قاعدة البيانات",server:"الخادم",sheet:"Google Sheets",local:"هذا المتصفح",error:"تعذر الاتصال"})[SOURCE]||"هذا المتصفح";
 const safeId=s=>String(s||"").replace(/[^A-Za-z0-9_\-.~:@+]/g,"").slice(0,120);
 
 async function initCloud(){
@@ -561,7 +561,7 @@ $("#send").onclick=async()=>{
   {const ss=getSession(); if(ss&&!ss.platform) rec.by=ss.email;}
   let where="", err="";
   if(CONFIG.endpoint){
-    try{const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rec)});if(r.ok)where="server";else err="تعذر الإرسال إلى الخادم.";}
+    try{const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rec)});if(r.ok)where="server";else{let j=null;try{j=await r.json();}catch(e){} if(j&&j.closed){btn.disabled=false;showClosed(j.message);return;} err=r.status===429?"عدد كبير من المحاولات، حاول بعد قليل.":"تعذر الإرسال إلى الخادم.";}}
     catch(e){err="تعذر الاتصال بالخادم.";}
   }
   if(!where&&DB&&UID){
@@ -774,12 +774,111 @@ $("#fileIn").onchange=async e=>{
   e.target.value="";
 };
 
-/* الحسابات معطلة مؤقتًا: الاستمارة فقط */
-const isAdmin=()=>false, getSession=()=>null;
+/* ===== لوحة الإدارة (محمية بكلمة مرور على الخادم) ===== */
+let ADMIN=false, lastPage="";
+const isAdmin=()=>ADMIN, getSession=()=>null;
+const ADM={records:[],settings:null,note:""};
+
+async function api(path,body){
+  const o={credentials:"same-origin",cache:"no-store"};
+  if(body){o.method="POST";o.headers={"Content-Type":"application/json"};o.body=JSON.stringify(body);}
+  try{
+    const r=await fetch(path,o); let j=null;
+    try{j=await r.json();}catch(e){}
+    return {status:r.status,j};
+  }catch(e){return {status:0,j:null};}
+}
+
+/* إغلاق الاستمارة للزوار */
+function showClosed(msg){
+  $("#formwrap").hidden=true; $("#closedBox").hidden=false;
+  $("#closedMsg").textContent=msg||"تم إغلاق الاستمارة.";
+  window.scrollTo(0,0);
+}
+async function checkStatus(){
+  if(!CONFIG.endpoint) return;
+  const r=await api("/api/status");
+  if(r.status===200&&r.j&&r.j.open===false) showClosed(r.j.message);
+}
+
+/* الدخول */
+async function adminInit(){
+  const box=$("#adminBody");
+  box.innerHTML='<p class="src">جارٍ التحميل…</p>'; $("#homeBody").innerHTML="";
+  const r=await api("/api/admin");
+  if(r.status===200&&r.j&&r.j.ok){ADMIN=true;ADM.records=r.j.records||[];ADM.settings=r.j.settings;renderAdmin();return;}
+  ADMIN=false;
+  if(r.status===401){renderLogin();return;}
+  if(r.status===503){box.innerHTML='<div class="empty"><h2>لوحة الإدارة غير مفعّلة</h2><p>أضف المتغيرين ADMIN_PASSWORD وSESSION_SECRET في إعدادات Vercel ثم أعد النشر.</p></div>';return;}
+  if(r.status===502){box.innerHTML='<div class="empty"><h2>تعذر قراءة الجدول</h2><p>تحقق من إعدادات Google ومن مشاركة الجدول مع حساب الخدمة.</p></div>';return;}
+  box.innerHTML='<div class="empty"><h2>تعذر الاتصال بالخادم</h2><p>حاول مرة أخرى بعد قليل.</p></div>';
+}
+function renderLogin(){
+  $("#adminBody").innerHTML=`<form class="auth-card" id="admForm" novalidate style="max-width:440px;margin:0 auto">
+   <div class="af"><label for="admPass">كلمة المرور</label><div class="pw"><input id="admPass" type="password" dir="ltr" autocomplete="current-password"><button type="button" class="pwt" id="admEye">إظهار</button></div></div>
+   <div class="amsg" id="admMsg" role="alert"></div><button type="submit" class="btn" id="admBtn">دخول</button></form>`;
+  $("#admEye").onclick=()=>{const i=$("#admPass");i.type=i.type==="password"?"text":"password";$("#admEye").textContent=i.type==="password"?"إظهار":"إخفاء";};
+  $("#admForm").onsubmit=async e=>{
+    e.preventDefault();
+    const pw=$("#admPass").value, m=$("#admMsg"), b=$("#admBtn");
+    if(!pw){m.textContent="أدخل كلمة المرور.";return;}
+    b.disabled=true; m.textContent="";
+    const r=await api("/api/admin",{action:"login",password:pw});
+    b.disabled=false;
+    if(r.status===200){adminInit();return;}
+    $("#admPass").value="";
+    m.textContent=r.status===429?"محاولات كثيرة. حاول بعد 15 دقيقة.":r.status===401?"كلمة المرور غير صحيحة.":r.status===503?"لوحة الإدارة غير مفعّلة بعد.":"تعذر الاتصال بالخادم.";
+  };
+}
+
+/* لوحة التحكم */
+function stateText(s){return s.open?"الاستمارة مفتوحة الآن":(s.state==="closed"?"الاستمارة مغلقة الآن":"أُغلقت تلقائيًّا بعد انتهاء الموعد المحدد");}
+function renderAdmin(){
+  const s=ADM.settings, n=ADM.records.length;
+  $("#adminBody").innerHTML=`<div class="grid2">`+
+   fig("حالة الاستمارة",stateText(s),`
+    <div class="af"><label class="opt"><input type="radio" name="admState" value="open" ${s.state==="open"?"checked":""}><span>مفتوحة</span></label>
+    <label class="opt"><input type="radio" name="admState" value="closed" ${s.state==="closed"?"checked":""}><span>مغلقة</span></label></div>
+    <div class="af"><label for="admAt">إغلاق تلقائي في (بتوقيت القاهرة)</label><input id="admAt" type="datetime-local" dir="ltr" value="${esc(s.closeAtLocal||"")}"><p class="hint">اتركه فارغًا لعدم الإغلاق التلقائي.</p></div>
+    <div class="af"><label for="admText">رسالة تظهر للزوار عند الإغلاق</label><textarea id="admText" maxlength="500">${esc(s.message||"")}</textarea></div>
+    <div class="amsg ${ADM.note?"ok":""}" id="admSaveMsg" role="status">${esc(ADM.note)}</div>
+    <button class="btn" id="admSave" type="button">حفظ</button>`)+
+   fig("البيانات",n+" استجابة",`<div class="row" style="justify-content:center"><button class="btn ghost" id="admRef" type="button">تحديث</button><button class="btn ghost" id="admCsv" type="button">تصدير CSV</button><button class="btn ghost" id="admJson" type="button">تصدير JSON</button><button class="btn ghost" id="admOut" type="button">تسجيل الخروج</button></div><p class="src">المصدر: Google Sheets. ملفات التصدير تحتوي بيانات شخصية، فاحفظها في مكان آمن.</p>`)+
+   `</div>`;
+  ADM.note="";
+  $("#admSave").onclick=async()=>{
+    const st=($$("input[name=admState]").find(i=>i.checked)||{}).value;
+    const b=$("#admSave"), m=$("#admSaveMsg"); b.disabled=true; m.classList.remove("ok"); m.textContent="";
+    const r=await api("/api/admin",{action:"settings",state:st,closeAtLocal:$("#admAt").value,message:$("#admText").value});
+    b.disabled=false;
+    if(r.status===200&&r.j&&r.j.ok){ADM.settings=r.j.settings;ADM.note="تم الحفظ.";renderAdmin();return;}
+    if(r.status===401){renderLogin();return;}
+    m.textContent=r.j&&r.j.error==="bad_date"?"صيغة التاريخ غير صحيحة.":"تعذر الحفظ. حاول مرة أخرى.";
+  };
+  $("#admRef").onclick=adminInit;
+  $("#admCsv").onclick=()=>download("responses.csv","text/csv;charset=utf-8",csvOf(ADM.records));
+  $("#admJson").onclick=()=>download("responses.json","application/json",JSON.stringify({questions:labelMap(),responses:ADM.records},null,2));
+  $("#admOut").onclick=async()=>{await api("/api/admin",{action:"logout"});ADMIN=false;$("#homeBody").innerHTML="";renderLogin();};
+  renderDash();
+}
+
+/* لوحة المؤشرات (نفس رسوم النسخة السابقة) */
+function renderDash(){
+  const root=$("#homeBody");
+  if(!ADM.records.length){root.innerHTML='<div class="empty"><h2>لا توجد استجابات بعد</h2><p>ستظهر المؤشرات هنا بمجرد وصول أول استمارة.</p></div>';return;}
+  REAL=ADM.records.map(r=>({id:r.id,ts:r.ts,a:Object.fromEntries(Object.entries(r.a).map(([k,v])=>["q"+k,v]))}));
+  DEMO_ON=false; BOOT=false; LOCKED=false; LOADING=false; SOURCE="sheet";
+  syncResp(); renderHome();
+}
+addEventListener("hashchange",()=>{route();window.scrollTo(0,0);});
+
 
 /* ===== التوجيه: الاستمارة فقط ===== */
 function route(){
-  $$("[data-page]").forEach(m=>m.hidden=m.dataset.page!=="form");
+  const page=(location.hash||"")==="#admin"?"admin":"form";
+  $$("[data-page]").forEach(m=>m.hidden=m.dataset.page!==page);
+  if(page==="admin"&&lastPage!=="admin") adminInit();
+  lastPage=page;
 }
 async function refreshAll(){await loadResponses();route();}
 
@@ -790,7 +889,8 @@ $$("input[type=text],input[type=email],input[type=tel]",form).forEach(i=>{i.maxL
 $$("textarea",form).forEach(t=>{t.maxLength=3000;});
 $$("input[type=number]",form).forEach(i=>{if(!i.max)i.max="100000";if(!i.min)i.min="0";});
 go(0); refresh();
-loadResponses().then(()=>{BOOT=false;route();});
+route(); checkStatus();
+loadResponses().then(()=>{BOOT=false;});
 
 </script>
 
