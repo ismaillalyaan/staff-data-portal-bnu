@@ -91,6 +91,10 @@ a{color:inherit}
 .ht{flex:1;height:12px;background:#eef3f5;display:block;border-radius:2px;overflow:hidden}
 .ht i{display:block;height:100%;background:var(--bar)}
 .ht i.top{background:var(--accent)}
+.hh{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:5px}
+.hv{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.hv b{font-size:.92rem;font-weight:700;color:var(--title)}
+.hv em{font-style:normal;font-size:.76rem;color:var(--muted);background:var(--soft);border-radius:999px;padding:1px 8px}
 .hrow b{display:flex;align-items:baseline;justify-content:flex-end;gap:8px;font-weight:700;min-width:92px;font-size:.9rem;white-space:nowrap}
 .hrow b small{color:var(--muted);font-weight:400;font-size:.78rem;margin:0;min-width:34px;text-align:end}
 .lg b small{margin-inline-start:8px;color:var(--muted);font-weight:400}
@@ -605,7 +609,7 @@ const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
 function hbars(ent,base,max=8){
   ent=ent.slice(0,max); if(!ent.length) return `<div class="none">لا توجد بيانات كافية.</div>`;
   const top=ent[0][1]||1;
-  return `<div>`+ent.map(([l,n],i)=>`<div class="hr" title="${esc(l)}: ${n}"><span class="hl">${esc(l)}</span><div class="hrow"><span class="ht"><i class="${i===0?"top":""}" style="width:${Math.max(2,n/top*100)}%"></i></span><b>${n}<small>${base?Math.round(n/base*100)+"%":""}</small></b></div></div>`).join("")+`</div>`;
+  return `<div>`+ent.map(([l,n],i)=>`<div class="hr" title="${esc(l)}: ${n}"><div class="hh"><span class="hl">${esc(l)}</span><span class="hv"><b>${n}</b>${base?`<em>${Math.round(n/base*100)}%</em>`:""}</span></div><span class="ht"><i class="${i===0?"top":""}" style="width:${Math.max(2,n/top*100)}%"></i></span></div>`).join("")+`</div>`;
 }
 function donut(ent){
   const tot=ent.reduce((s,e)=>s+e[1],0); if(!tot) return `<div class="none">لا توجد بيانات كافية.</div>`;
