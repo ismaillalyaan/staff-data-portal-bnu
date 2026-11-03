@@ -123,7 +123,7 @@ let settingsCache = { v: null, t: 0 };
 const range = () => "'" + SETTINGS_TAB + "'!A1:B3";
 
 async function readSettings(fresh) {
-  if (!fresh && settingsCache.v && Date.now() - settingsCache.t < 15000) return settingsCache.v;
+  if (!fresh && settingsCache.v && Date.now() - settingsCache.t < 4000) return settingsCache.v;
   let s = { state: "open", closeAt: "", message: DEFAULT_MESSAGE };
   try {
     const j = await sheets(values(range()));
