@@ -99,7 +99,7 @@ a{color:inherit}
 .hrow b small{color:var(--muted);font-weight:400;font-size:.78rem;margin:0;min-width:34px;text-align:end}
 .lg b small{margin-inline-start:8px;color:var(--muted);font-weight:400}
 .cols{display:flex;align-items:flex-end;gap:14px;height:190px;border-bottom:2px solid var(--orange)}
-.col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.8rem}
+.col{flex:1;max-width:90px;margin-inline:auto;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.8rem}
 .col b{font-weight:700;margin-bottom:4px}
 .col i{display:block;width:100%;background:var(--bar);min-height:4px;border-radius:2px 2px 0 0}
 .col i.top{background:var(--accent)}
@@ -111,7 +111,7 @@ a{color:inherit}
 .lg{list-style:none;margin:0;padding:0;font-size:.88rem;flex:1;min-width:160px}
 .lg li{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
 .lg i{width:12px;height:12px;display:inline-block;flex:none;border-radius:50%}
-.lg b{margin-inline-start:auto;font-weight:700}
+.lg .hv{margin-inline-start:auto}
 .lg small{color:var(--muted);margin-right:6px}
 .tbl{width:100%;border-collapse:collapse;font-size:.92rem}
 .tbl th{text-align:right;font-weight:700;color:var(--ink);font-size:.8rem;background:var(--soft);padding:10px}
@@ -616,7 +616,7 @@ function donut(ent){
   const R=46,C=2*Math.PI*R; let off=0;
   const arcs=ent.map(([l,n],i)=>{const len=n/tot*C;const s=`<circle r="${R}" cx="60" cy="60" fill="none" stroke="var(--c${i%6+1})" stroke-width="16" stroke-dasharray="${Math.max(0,len-1.6)} ${C-len+1.6}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"><title>${esc(l)}: ${n}</title></circle>`;off+=len;return s;}).join("");
   return `<div class="dn"><svg viewBox="0 0 120 120" role="img" aria-label="رسم دائري">${arcs}<text x="60" y="58" text-anchor="middle" font-size="20" font-weight="600">${tot}</text><text x="60" y="74" text-anchor="middle" font-size="8" style="fill:var(--muted)">استجابة</text></svg>
-  <ul class="lg">${ent.map(([l,n],i)=>`<li><i style="background:var(--c${i%6+1})"></i>${esc(l)}<b>${n}<small>${P(n/tot)}</small></b></li>`).join("")}</ul></div>`;
+  <ul class="lg">${ent.map(([l,n],i)=>`<li><i style="background:var(--c${i%6+1})"></i>${esc(l)}<span class="hv"><b>${n}</b><em>${P(n/tot)}</em></span></li>`).join("")}</ul></div>`;
 }
 function cols(ent){
   const max=Math.max(1,...ent.map(e=>e[1])), top=ent.reduce((b,e,i)=>e[1]>ent[b][1]?i:b,0);
