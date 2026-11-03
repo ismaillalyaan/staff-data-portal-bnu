@@ -563,7 +563,7 @@ $("#send").onclick=async()=>{
   {const ss=getSession(); if(ss&&!ss.platform) rec.by=ss.email;}
   let where="", err="";
   if(CONFIG.endpoint){
-    try{const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rec)});if(r.ok)where="server";else{let j=null;try{j=await r.json();}catch(e){} if(j&&j.closed){btn.disabled=false;showClosed(j.message);return;} err=r.status===429?"عدد كبير من المحاولات، حاول بعد قليل.":"تعذر الإرسال إلى الخادم.";}}
+    try{const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rec)});if(r.ok)where="server";else{let j=null;try{j=await r.json();}catch(e){} if(j&&j.closed){btn.disabled=false;showClosed(j.message);return;} err=r.status===429?"عدد كبير من المحاولات، حاول بعد قليل.":"تعذر الإرسال إلى الخادم ("+r.status+(j&&j.reason?": "+j.reason:"")+").";}}
     catch(e){err="تعذر الاتصال بالخادم.";}
   }
   if(!where&&DB&&UID){

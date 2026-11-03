@@ -26,12 +26,14 @@ function limited(ip) {
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.setHeader("Allow", "POST"); return L.send(res, 405, { ok: false }); }
 
-  const allowed = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
-  if (allowed.length && !allowed.includes(req.headers.origin || "")) return L.send(res, 403, { ok: false });
+  // ALLOWED_ORIGINS is optional; tolerate a trailing slash, different case, or a bare host name.
+  const norm = s => String(s).trim().toLowerCase().replace(/\/+$/, "").replace(/^https?:\/\//, "");
+  const allowed = (process.env.ALLOWED_ORIGINS || "").split(",").map(norm).filter(Boolean);
+  if (allowed.length && !allowed.includes(norm(req.headers.origin || ""))) return L.send(res, 403, { ok: false, reason: "origin" });
 
-  if (!/^application\/json/i.test(req.headers["content-type"] || "")) return L.send(res, 415, { ok: false });
-  if (Number(req.headers["content-length"] || 0) > MAX_BODY) return L.send(res, 413, { ok: false });
-  if (limited(L.clientIp(req))) return L.send(res, 429, { ok: false }, { "Retry-After": "600" });
+  if (!/^application\/json/i.test(req.headers["content-type"] || "")) return L.send(res, 415, { ok: false, reason: "type" });
+  if (Number(req.headers["content-length"] || 0) > MAX_BODY) return L.send(res, 413, { ok: false, reason: "size" });
+  if (limited(L.clientIp(req))) return L.send(res, 429, { ok: false, reason: "rate" }, { "Retry-After": "600" });
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { return L.send(res, 400, { ok: false }); } }
@@ -58,6 +60,6 @@ module.exports = async (req, res) => {
     return L.send(res, 200, { ok: true });
   } catch (e) {
     console.error("submit failed:", e && e.message);
-    return L.send(res, 502, { ok: false });
+    return L.send(res, 502, { ok: false, reason: "sheet" });
   }
 };
