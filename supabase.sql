@@ -19,6 +19,19 @@ create table if not exists public.responses (
   updated_at timestamptz not null default now()
 );
 
+-- Databases created before nid_enc existed:
+alter table public.profiles add column if not exists nid_enc text;
+
+-- Form open/close switch (one row, id = 1). Replaces the old hidden Google Sheets tab.
+create table if not exists public.settings (
+  id int primary key check (id = 1),
+  state text not null default 'open' check (state in ('open','closed')),
+  close_at text not null default '',
+  message text not null default '',
+  updated_at timestamptz not null default now()
+);
+insert into public.settings (id) values (1) on conflict (id) do nothing;
+
 create table if not exists public.email_codes (
   email      text not null,
   purpose    text not null,
@@ -34,3 +47,4 @@ create table if not exists public.email_codes (
 alter table public.profiles    enable row level security;
 alter table public.responses   enable row level security;
 alter table public.email_codes enable row level security;
+alter table public.settings enable row level security;
