@@ -1,39 +1,48 @@
-// Receives one survey response and appends it to the Google Sheet.
+// Saves (or updates) the signed-in user's response: Supabase is the source of truth, the Google Sheet mirrors it.
 const crypto = require("crypto");
 const L = require("./_lib.js");
+const S = require("./_sb.js");
 
 const MAX_BODY = 100 * 1024;
-const RATE_MAX = Number(process.env.RATE_MAX) || 60; // campus networks share one public IP, so keep this generous
-const RATE_WINDOW = 10 * 60 * 1000;
 const hits = new Map();
+function limited(key) {
+  const now = Date.now();
+  const list = (hits.get(key) || []).filter(t => now - t < 600000);
+  if (list.length >= 12) { hits.set(key, list); return true; }
+  list.push(now); hits.set(key, list);
+  if (hits.size > 5000) for (const [k, v] of hits) if (!v.some(t => now - t < 600000)) hits.delete(k);
+  return false;
+}
 
-function clean(v) {
-  if (Array.isArray(v)) return v.slice(0, 50).map(x => clean(x)).filter(x => x !== "").join(" | ");
+const stripCtl = s => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‪-‮⁦-⁩]/g, "").trim().slice(0, 3000);
+// stored value: text, or a list of texts
+function keep(v) {
+  if (Array.isArray(v)) { const a = v.slice(0, 50).map(x => (typeof x === "string" ? stripCtl(x) : "")).filter(Boolean); return a.length ? a : ""; }
   if (typeof v === "number" && Number.isFinite(v)) return String(v);
-  let s = L.cleanText(v, 3000);
+  return typeof v === "string" ? stripCtl(v) : "";
+}
+// sheet cell: same text, with a guard against spreadsheet formulas
+function cell(v) {
+  let s = Array.isArray(v) ? v.join(" | ") : v;
+  if (!s) return "-";
   if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return s;
-}
-function limited(ip) {
-  const now = Date.now();
-  const list = (hits.get(ip) || []).filter(t => now - t < RATE_WINDOW);
-  if (list.length >= RATE_MAX) { hits.set(ip, list); return true; }
-  list.push(now); hits.set(ip, list);
-  if (hits.size > 5000) for (const [k, v] of hits) if (!v.some(t => now - t < RATE_WINDOW)) hits.delete(k);
-  return false;
 }
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.setHeader("Allow", "POST"); return L.send(res, 405, { ok: false }); }
+  if (!S.configured() || !L.userSecretOk()) return L.send(res, 503, { ok: false, reason: "config" });
 
-  // ALLOWED_ORIGINS is optional; tolerate a trailing slash, different case, or a bare host name.
   const norm = s => String(s).trim().toLowerCase().replace(/\/+$/, "").replace(/^https?:\/\//, "");
   const allowed = (process.env.ALLOWED_ORIGINS || "").split(",").map(norm).filter(Boolean);
   if (allowed.length && !allowed.includes(norm(req.headers.origin || ""))) return L.send(res, 403, { ok: false, reason: "origin" });
-
+  if (!L.sameOrigin(req)) return L.send(res, 403, { ok: false, reason: "origin" });
   if (!/^application\/json/i.test(req.headers["content-type"] || "")) return L.send(res, 415, { ok: false, reason: "type" });
   if (Number(req.headers["content-length"] || 0) > MAX_BODY) return L.send(res, 413, { ok: false, reason: "size" });
-  if (limited(L.clientIp(req))) return L.send(res, 429, { ok: false, reason: "rate" }, { "Retry-After": "600" });
+
+  const uid = L.userId(req);
+  if (!uid) return L.send(res, 401, { ok: false, reason: "auth" });
+  if (limited(uid)) return L.send(res, 429, { ok: false, reason: "rate" }, { "Retry-After": "600" });
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { return L.send(res, 400, { ok: false }); } }
@@ -45,21 +54,40 @@ module.exports = async (req, res) => {
     if (!st.open) return L.send(res, 403, { ok: false, closed: true, message: st.message });
   } catch (e) { /* if settings cannot be read, keep accepting */ }
 
-  let known = 0;
-  const row = [new Date().toLocaleString("sv-SE", { timeZone: "Africa/Cairo" }), crypto.randomUUID()];
+  const stored = {}; let known = 0;
   for (const q of L.QUESTIONS) {
-    const raw = Object.prototype.hasOwnProperty.call(body.a, q.key) ? body.a[q.key] : "";
-    const v = clean(raw);
-    if (v) known++;
-    row.push(v || "-");
+    if (!Object.prototype.hasOwnProperty.call(body.a, q.key)) continue;
+    const v = keep(body.a[q.key]);
+    if (v) { stored[q.key] = v; known++; }
   }
   if (!known) return L.send(res, 400, { ok: false });
 
   try {
-    await L.appendRow(row);
-    return L.send(res, 200, { ok: true });
+    const prof = await S.db("profiles?id=eq." + encodeURIComponent(uid) + "&select=id&limit=1");
+    if (!prof.ok || !prof.j[0]) return L.send(res, 401, { ok: false, reason: "auth" });
+
+    const old = await S.db("responses?user_id=eq." + encodeURIComponent(uid) + "&select=id,answers,history,updated_at&limit=1");
+    if (!old.ok) return L.send(res, 502, { ok: false, reason: "db" });
+    const prev = old.j[0] || null;
+    const rid = prev ? prev.id : crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    if (prev) {
+      let history = Array.isArray(prev.history) ? prev.history : [];
+      if (JSON.stringify(prev.answers) !== JSON.stringify(stored)) history = [{ ts: prev.updated_at, a: prev.answers }, ...history].slice(0, 10);
+      const u = await S.db("responses?id=eq." + rid, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { answers: stored, history, updated_at: now } });
+      if (!u.ok) return L.send(res, 502, { ok: false, reason: "db" });
+    } else {
+      const u = await S.db("responses", { method: "POST", headers: { Prefer: "return=minimal" }, body: { id: rid, user_id: uid, answers: stored, history: [], created_at: now, updated_at: now } });
+      if (!u.ok) return L.send(res, 502, { ok: false, reason: "db" });
+    }
+
+    const row = [new Date().toLocaleString("sv-SE", { timeZone: "Africa/Cairo" }), rid, ...L.QUESTIONS.map(q => cell(stored[q.key]))];
+    try { await L.upsertRow(rid, row); }
+    catch (e) { console.error("sheet failed:", e && e.message); return L.send(res, 502, { ok: false, reason: "sheet" }); }
+    return L.send(res, 200, { ok: true, updated: !!prev, ts: now });
   } catch (e) {
     console.error("submit failed:", e && e.message);
-    return L.send(res, 502, { ok: false, reason: "sheet" });
+    return L.send(res, 502, { ok: false, reason: "server" });
   }
 };

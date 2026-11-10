@@ -81,7 +81,7 @@ async function ensureColumns() {
   }
 }
 
-async function appendRow(row) {
+async function prepareSheet() {
   const q = "?valueInputOption=RAW&insertDataOption=INSERT_ROWS";
   if (!headerOk) {
     await ensureColumns();
@@ -91,7 +91,26 @@ async function appendRow(row) {
     }
     headerOk = true;
   }
+}
+async function appendRow(row) {
+  const q = "?valueInputOption=RAW&insertDataOption=INSERT_ROWS";
+  await prepareSheet();
   await sheets(values("A1:A1") + ":append" + q, { method: "POST", body: JSON.stringify({ values: [row] }) });
+}
+
+// Insert the response, or overwrite the row that already carries this id (edits by the same user).
+async function upsertRow(rid, row) {
+  const q = "?valueInputOption=RAW";
+  await prepareSheet();
+  const col = await sheets(values("B:B"));
+  const list = col.values || [];
+  const idx = list.findIndex(r => r && r[0] === rid);
+  if (idx >= 0) {
+    await sheets(values("A" + (idx + 1)) + q, { method: "PUT", body: JSON.stringify({ values: [row] }) });
+    return "updated";
+  }
+  await appendRow(row);
+  return "added";
 }
 
 async function readRecords() {
@@ -190,6 +209,27 @@ function authed(req) {
   if (sig.length !== good.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good))) return false;
   try { return JSON.parse(Buffer.from(p.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString()).exp > Date.now(); } catch (e) { return false; }
 }
+/* ---------- User session (signed cookie holding the Supabase user id) ---------- */
+const UCOOKIE = "usr";
+const userSecretOk = () => (process.env.SESSION_SECRET || "").length >= 32;
+function makeUserCookie(uid, maxAgeSec) {
+  const p = b64url(JSON.stringify({ uid, exp: Date.now() + maxAgeSec * 1000 }));
+  return UCOOKIE + "=" + p + "." + sign(p) + "; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=" + maxAgeSec;
+}
+const clearUserCookie = () => UCOOKIE + "=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0";
+function userId(req) {
+  if (!userSecretOk()) return null;
+  const m = new RegExp("(?:^|;\\s*)" + UCOOKIE + "=([^;]+)").exec(req.headers.cookie || "");
+  if (!m) return null;
+  const [p, sig] = m[1].split(".");
+  if (!p || !sig) return null;
+  const good = sign(p);
+  if (sig.length !== good.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good))) return null;
+  try {
+    const o = JSON.parse(Buffer.from(p.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString());
+    return o.exp > Date.now() && /^[0-9a-f-]{36}$/i.test(o.uid) ? o.uid : null;
+  } catch (e) { return null; }
+}
 function sameOrigin(req) {
   const o = req.headers.origin;
   if (!o) return false;
@@ -199,5 +239,5 @@ function sameOrigin(req) {
 module.exports = {
   QUESTIONS, HEADERS, DEFAULT_MESSAGE, send, cleanText, clientIp, safeEq, makeJwt,
   appendRow, readRecords, readSettings, writeSettings, isOpen, publicStatus,
-  cairoToISO, isoToCairo, makeCookie, clearCookie, authed, sameOrigin, secretOk
+  cairoToISO, isoToCairo, makeCookie, clearCookie, authed, sameOrigin, secretOk, upsertRow, makeUserCookie, clearUserCookie, userId, userSecretOk
 };
