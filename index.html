@@ -1064,7 +1064,7 @@ const REASON={
   password:"كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي حرفًا ورقمًا.", email_exists:"هذا البريد مسجّل بالفعل. سجّل الدخول.",
   nid_exists:"هذا الرقم القومي مسجّل بحساب آخر.", rate:"عدد المحاولات كبير. حاول بعد قليل.", mail_rate:"تعذر إرسال الرمز الآن بسبب كثرة الطلبات. حاول بعد قليل.",
   mail:"تعذر إرسال الرمز إلى بريدك الآن. تأكد من البريد وحاول بعد قليل.", wait:"انتظر دقيقة قبل طلب رمز جديد.", code:"الرمز غير صحيح أو انتهت صلاحيته.", credentials:"البريد أو كلمة المرور غير صحيحة.",
-  locked:"تم إيقاف المحاولات مؤقتًا. حاول بعد قليل.", current:"كلمة المرور الحالية غير صحيحة.", config:"الخدمة غير مهيّأة بعد. تواصل مع مسؤول الموقع."
+  locked:"تم إيقاف المحاولات مؤقتًا. حاول بعد قليل.", current:"كلمة المرور الحالية غير صحيحة.", unconfirmed:"هذا الحساب لم يكتمل تفعيله. أنشئ الحساب من جديد بنفس البريد.", config:"الخدمة غير مهيّأة بعد. تواصل مع مسؤول الموقع."
 };
 const reasonText=r=>REASON[r&&r.j&&r.j.reason]||(r.status===0?"تعذر الاتصال بالخادم.":"تعذر تنفيذ الطلب. حاول مرة أخرى.");
 function bindPw(root){$$(".pwt",root).forEach(b=>b.onclick=()=>{const i=$("#"+b.dataset.for); i.type=i.type==="password"?"text":"password"; b.textContent=i.type==="password"?"إظهار":"إخفاء";});}
@@ -1074,10 +1074,9 @@ function renderAuth(view){
   clearInterval(rsTimer);
   const box=$("#authBody"), title=$("#authTitle");
   if(CFGERR){title.textContent="الخدمة غير متاحة"; box.innerHTML='<p class="lead">لم يتم إعداد خدمة الحسابات بعد. تواصل مع مسؤول الموقع.</p>'; return;}
-  if(view==="verify"&&!PEND) view="login";
   if(view==="reset"&&!PEND) view="forgot";
-  if(!["login","signup","verify","forgot","reset"].includes(view)) view="login";
-  ({login:rLogin,signup:rSignup,verify:rVerify,forgot:rForgot,reset:rReset})[view](box,title);
+  if(!["login","signup","forgot","reset"].includes(view)) view="login";
+  ({login:rLogin,signup:rSignup,forgot:rForgot,reset:rReset})[view](box,title);
 }
 function rLogin(box,title){
   title.textContent="تسجيل الدخول";
@@ -1090,7 +1089,6 @@ function rLogin(box,title){
     if(!email||!password){aMsg("liM","أدخل البريد وكلمة المرور.");return;}
     const r=await api("/api/auth",{action:"login",email,password});
     if(r.status===200){await loadMe(); go2("account"); return;}
-    if(r.status===403&&r.j&&r.j.reason==="unconfirmed"){setPend(r.j.email||email); resendAt=Date.now()+60000; go2("verify"); return;}
     aMsg("liM",reasonText(r));
   });
 }
@@ -1104,7 +1102,7 @@ function rSignup(box,title){
    ${pwField("suP2","تأكيد كلمة المرور","new-password")}
    <div class="hpw" aria-hidden="true"><label for="suW">اترك فارغًا</label><input id="suW" type="text" tabindex="-1" autocomplete="off"></div>
    <div class="asec">الرقم القومي يُستخدم فقط لمنع تكرار الحسابات، ويُحفظ بصيغة مشفّرة لا يمكن عرضها.</div>
-   <div class="amsg" id="suM" role="alert" style="margin-top:12px"></div><button class="btn" id="suB" type="submit">إنشاء الحساب وإرسال رمز التحقق</button></form>
+   <div class="amsg" id="suM" role="alert" style="margin-top:12px"></div><button class="btn" id="suB" type="submit">إنشاء الحساب</button></form>
    <p class="alt">لديك حساب؟ <a href="#login">تسجيل الدخول</a></p>`;
   bindPw(box); const opened=Date.now();
   $("#suI").addEventListener("input",e=>{const n=toEn(e.target.value).replace(/\D/g,"").slice(0,14); if(n!==e.target.value) e.target.value=n;});
@@ -1118,7 +1116,7 @@ function rSignup(box,title){
     if(p!==p2){aMsg("suM","كلمتا المرور غير متطابقتين.");return;}
     if($("#suW").value||Date.now()-opened<2500){aMsg("suM","أعد المحاولة بعد لحظات.");return;}
     const r=await api("/api/auth",{action:"signup",name,nid,email,password:p,hp:$("#suW").value});
-    if(r.status===200&&r.j&&r.j.ok){setPend(email.toLowerCase()); resendAt=Date.now()+60000; go2("verify"); return;}
+    if(r.status===200&&r.j&&r.j.ok){await loadMe(); go2("account"); return;}
     aMsg("suM",reasonText(r));
   });
 }
@@ -1142,7 +1140,7 @@ function codeForm(box,title,{heading,mode}){
     aMsg("cdM","");
     const code=toEn($("#cdC").value).replace(/\D/g,"");
     if(code.length<6){aMsg("cdM","أدخل الرمز المكوّن من 6 أرقام.");return;}
-    let body={action:reset?"reset":"verify",email:PEND,code};
+    let body={action:"reset",email:PEND,code};
     if(reset){const p=$("#cdP").value; if(p.length<8||!/[A-Za-z؀-ۿ]/.test(p)||!/\d/.test(p)){aMsg("cdM",REASON.password);return;} body.password=p;}
     const r=await api("/api/auth",body);
     if(r.status===200&&r.j&&r.j.ok){setPend(""); await loadMe(); go2("account"); return;}
@@ -1150,13 +1148,12 @@ function codeForm(box,title,{heading,mode}){
   });
   $("#rsB").onclick=async()=>{
     aMsg("cdM","");
-    const r=await api("/api/auth",{action:reset?"forgot":"resend",email:PEND});
+    const r=await api("/api/auth",{action:"forgot",email:PEND});
     if(r.status===200){resendAt=Date.now()+60000; aMsg("cdM","تم إرسال رمز جديد.",true);} else aMsg("cdM",reasonText(r));
     startResend();
   };
   startResend();
 }
-function rVerify(box,title){codeForm(box,title,{heading:"تأكيد البريد الإلكتروني",mode:"verify"});}
 function rReset(box,title){codeForm(box,title,{heading:"كلمة مرور جديدة",mode:"reset"});}
 function rForgot(box,title){
   title.textContent="استعادة كلمة المرور";

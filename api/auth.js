@@ -1,5 +1,5 @@
-// Accounts: sign up (email code), sign in, session, profile.
-// Supabase Auth keeps the passwords, Supabase Postgres keeps profiles/responses, codes are mailed through Gmail SMTP.
+// Accounts: sign up (no email verification), sign in, session, profile, password reset by email code.
+// Supabase Auth keeps the passwords, Supabase Postgres keeps profiles/responses, reset codes are mailed through Gmail SMTP.
 const L = require("./_lib.js");
 const S = require("./_sb.js");
 const C = require("./_codes.js");
@@ -52,7 +52,7 @@ async function me(req, res) {
 }
 
 async function signup(req, res, b, ip) {
-  if (b.hp) return L.send(res, 200, { ok: true, verify: true }); // honeypot: pretend
+  if (b.hp) return L.send(res, 200, { ok: true }); // honeypot: pretend
   const name = S.cleanName(b.name), email = S.normEmail(b.email), nid = S.EN(b.nid).replace(/\s/g, ""), password = b.password;
   if (!S.validName(name)) return L.send(res, 400, { ok: false, reason: "name" });
   if (!S.validEmail(email)) return L.send(res, 400, { ok: false, reason: "email" });
@@ -73,7 +73,8 @@ async function signup(req, res, b, ip) {
     if (await isConfirmed(own.j[0].id)) return L.send(res, 409, { ok: false, reason: "nid_exists" });
     await dropUser(own.j[0].id);
   }
-  const a = await S.admin("/users", { method: "POST", body: { email, password, email_confirm: false, user_metadata: { full_name: name } } });
+  // Email verification is switched off: accounts are created already confirmed.
+  const a = await S.admin("/users", { method: "POST", body: { email, password, email_confirm: true, user_metadata: { full_name: name } } });
   if (!a.ok) {
     const code = S.errCode(a);
     if (/weak_password|password/i.test(code)) return L.send(res, 400, { ok: false, reason: "password" });
@@ -87,32 +88,7 @@ async function signup(req, res, b, ip) {
     await S.admin("/users/" + enc(id), { method: "DELETE" });
     return L.send(res, ins.status === 409 ? 409 : 502, { ok: false, reason: ins.status === 409 ? "nid_exists" : "db" });
   }
-  if ((await C.sendCode(email, "signup")) === "mail") { await dropUser(id); return L.send(res, 502, { ok: false, reason: "mail" }); }
-  return L.send(res, 200, { ok: true, verify: true, email });
-}
-
-async function verify(req, res, b, ip) {
-  const email = S.normEmail(b.email), code = S.EN(b.code).replace(/\s/g, "");
-  if (!S.validEmail(email) || !S.validCode(code)) return L.send(res, 400, { ok: false, reason: "code" });
-  if (limited("vf:" + email, 10, 900000) || limited("vf:" + ip, 200, 900000)) return L.send(res, 429, { ok: false, reason: "rate" });
-  const p = await profileByEmail(email);
-  if (!p || !(await C.checkCode(email, "signup", code))) return L.send(res, 400, { ok: false, reason: "code" });
-  const u = await S.admin("/users/" + enc(p.id), { method: "PUT", body: { email_confirm: true } });
-  if (!u.ok) return L.send(res, 502, { ok: false, reason: "auth" });
-  return startSession(res, p.id, { ok: true });
-}
-
-async function resend(req, res, b, ip) {
-  const email = S.normEmail(b.email);
-  if (!S.validEmail(email)) return L.send(res, 400, { ok: false, reason: "email" });
-  if (limited("rs:" + email, 6, 3600000) || limited("rs:" + ip, 200, 3600000)) return L.send(res, 429, { ok: false, reason: "rate" });
-  const p = await profileByEmail(email);
-  if (p && (await isConfirmed(p.id)) === false) {
-    const sent = await C.sendCode(email, "signup");
-    if (sent === "wait") return L.send(res, 429, { ok: false, reason: "wait" });
-    if (sent === "mail") return L.send(res, 502, { ok: false, reason: "mail" });
-  }
-  return L.send(res, 200, { ok: true }); // same answer whether or not the account exists
+  return startSession(res, id, { ok: true }); // no email code: sign the new user straight in
 }
 
 async function signin(req, res, b, ip) {
@@ -128,8 +104,8 @@ async function signin(req, res, b, ip) {
     return startSession(res, r.j.user.id, { ok: true });
   }
   if (/email_not_confirmed|not confirmed/i.test(S.errCode(r) + JSON.stringify(r.j || ""))) {
-    await C.sendCode(email, "signup"); // answers "wait" when one was just sent
-    return L.send(res, 403, { ok: false, reason: "unconfirmed", email });
+    // Left over from when verification was on: sign-up drops unconfirmed accounts, so ask them to register again.
+    return L.send(res, 403, { ok: false, reason: "unconfirmed" });
   }
   f.n++; if (f.n >= 5) { f.until = Date.now() + 15 * 60000; f.n = 0; }
   fails.set(email, f);
@@ -137,6 +113,7 @@ async function signin(req, res, b, ip) {
 }
 
 async function forgot(req, res, b, ip) {
+  if (!C.mailReady()) return L.send(res, 503, { ok: false, reason: "config" }); // reset codes still need Gmail
   const email = S.normEmail(b.email);
   if (!S.validEmail(email)) return L.send(res, 400, { ok: false, reason: "email" });
   if (limited("fg:" + email, 4, 3600000) || limited("fg:" + ip, 100, 3600000)) return L.send(res, 429, { ok: false, reason: "rate" });
@@ -149,6 +126,7 @@ async function forgot(req, res, b, ip) {
   return L.send(res, 200, { ok: true });
 }
 async function reset(req, res, b, ip) {
+  if (!C.mailReady()) return L.send(res, 503, { ok: false, reason: "config" });
   const email = S.normEmail(b.email), code = S.EN(b.code).replace(/\s/g, "");
   if (!S.validEmail(email) || !S.validCode(code)) return L.send(res, 400, { ok: false, reason: "code" });
   if (!S.validPassword(b.password)) return L.send(res, 400, { ok: false, reason: "password" });
@@ -182,7 +160,7 @@ async function updateProfile(req, res, b, uid) {
 }
 
 module.exports = async (req, res) => {
-  if (!S.configured() || !L.userSecretOk() || !C.mailReady()) return L.send(res, 503, { ok: false, reason: "config" });
+  if (!S.configured() || !L.userSecretOk()) return L.send(res, 503, { ok: false, reason: "config" });
   try {
     if (req.method === "GET") return await me(req, res);
     if (req.method !== "POST") { res.setHeader("Allow", "GET, POST"); return L.send(res, 405, { ok: false }); }
@@ -194,8 +172,6 @@ module.exports = async (req, res) => {
     const ip = L.clientIp(req);
     switch (b.action) {
       case "signup": return await signup(req, res, b, ip);
-      case "verify": return await verify(req, res, b, ip);
-      case "resend": return await resend(req, res, b, ip);
       case "login": return await signin(req, res, b, ip);
       case "forgot": return await forgot(req, res, b, ip);
       case "reset": return await reset(req, res, b, ip);
