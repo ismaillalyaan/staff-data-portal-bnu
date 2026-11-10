@@ -2,10 +2,12 @@
 const crypto = require("crypto");
 const QUESTIONS = require("./questions.json");
 
+// Column titles for exports (CSV etc.).
 const HEADERS = ["وقت الاستلام", "المعرف", ...QUESTIONS.map(q => (q.n ? q.n + ". " : "") + q.label)];
-const MULTI = new Set(QUESTIONS.filter(q => q.type === "checks" || q.type === "multiselect").map(q => String(q.key)));
 const DEFAULT_MESSAGE = "تم إغلاق الاستمارة. شكرًا لمشاركتكم.";
-const SETTINGS_TAB = "_settings";
+
+// Loaded lazily so a require cycle with _sb.js can never happen.
+const sb = () => require("./_sb.js");
 
 /* ---------- small utils ---------- */
 const b64url = b => Buffer.from(b).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
@@ -24,110 +26,25 @@ function send(res, code, body, extra) {
 
 function cleanText(v, max) {
   if (typeof v !== "string") return "";
-  return v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‪-‮⁦-⁩]/g, "").trim().slice(0, max);
+  return v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/g, "").trim().slice(0, max);
 }
 
-/* ---------- Google auth ---------- */
-let tokenCache = { value: "", exp: 0 };
-function makeJwt(email, privateKey, now) {
-  const head = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claim = b64url(JSON.stringify({
-    iss: email, scope: "https://www.googleapis.com/auth/spreadsheets",
-    aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600
-  }));
-  const sig = crypto.createSign("RSA-SHA256").update(head + "." + claim).sign(privateKey);
-  return head + "." + claim + "." + b64url(sig);
-}
-async function accessToken() {
-  const nowMs = Date.now();
-  if (tokenCache.value && tokenCache.exp - 60000 > nowMs) return tokenCache.value;
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  let key = process.env.GOOGLE_PRIVATE_KEY || "";
-  if (process.env.GOOGLE_PRIVATE_KEY_BASE64) key = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, "base64").toString("utf8");
-  key = key.trim().replace(/^["']|["']$/g, "").replace(/\\n/g, "\n").trim();
-  if (!email || !key) throw new Error("missing credentials");
-  const jwt = makeJwt(email, key, Math.floor(nowMs / 1000));
-  const r = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "grant_type=" + encodeURIComponent("urn:ietf:params:oauth:grant-type:jwt-bearer") + "&assertion=" + encodeURIComponent(jwt)
-  });
-  if (!r.ok) throw new Error("token " + r.status);
-  const j = await r.json();
-  tokenCache = { value: j.access_token, exp: nowMs + (j.expires_in || 3600) * 1000 };
-  return tokenCache.value;
-}
-
-/* ---------- Sheets ---------- */
-async function sheets(suffix, opts) {
-  const token = await accessToken();
-  const r = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + encodeURIComponent(process.env.SHEET_ID) + suffix,
-    Object.assign({ headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" } }, opts));
-  if (!r.ok) { const e = new Error("sheets " + r.status); e.status = r.status; throw e; }
-  return r.json();
-}
-const values = range => "/values/" + encodeURIComponent(range);
-
-let headerOk = false;
-// A new Google Sheet has only 26 columns; the form needs one per question.
-async function ensureColumns() {
-  const meta = await sheets("?fields=" + encodeURIComponent("sheets.properties(sheetId,title,gridProperties)"));
-  const p = meta.sheets && meta.sheets[0] && meta.sheets[0].properties;
-  const need = HEADERS.length + 5;
-  if (p && p.gridProperties && p.gridProperties.columnCount < need) {
-    await sheets(":batchUpdate", { method: "POST", body: JSON.stringify({ requests: [{
-      updateSheetProperties: { properties: { sheetId: p.sheetId, gridProperties: { columnCount: need } }, fields: "gridProperties.columnCount" }
-    }] }) });
-  }
-}
-
-async function prepareSheet() {
-  const q = "?valueInputOption=RAW&insertDataOption=INSERT_ROWS";
-  if (!headerOk) {
-    await ensureColumns();
-    const first = await sheets(values("A1:A1"));
-    if (!first.values || !first.values.length) {
-      await sheets(values("A1:A1") + ":append" + q, { method: "POST", body: JSON.stringify({ values: [HEADERS] }) });
-    }
-    headerOk = true;
-  }
-}
-async function appendRow(row) {
-  const q = "?valueInputOption=RAW&insertDataOption=INSERT_ROWS";
-  await prepareSheet();
-  await sheets(values("A1:A1") + ":append" + q, { method: "POST", body: JSON.stringify({ values: [row] }) });
-}
-
-// Insert the response, or overwrite the row that already carries this id (edits by the same user).
-async function upsertRow(rid, row) {
-  const q = "?valueInputOption=RAW";
-  await prepareSheet();
-  const col = await sheets(values("B:B"));
-  const list = col.values || [];
-  const idx = list.findIndex(r => r && r[0] === rid);
-  if (idx >= 0) {
-    await sheets(values("A" + (idx + 1)) + q, { method: "PUT", body: JSON.stringify({ values: [row] }) });
-    return "updated";
-  }
-  await appendRow(row);
-  return "added";
-}
-
+/* ---------- Responses (Supabase: public.responses) ---------- */
+// Same shape the dashboard always received: [{ id, ts, a }], oldest first, newest 5000 at most.
 async function readRecords() {
-  const j = await sheets(values("A:CZ"));
-  const rows = j.values || [];
-  const out = [];
-  for (const row of rows) {
-    if (!row || !row.length || row[0] === HEADERS[0]) continue;
-    const a = {};
-    QUESTIONS.forEach((q, i) => {
-      const v = row[2 + i];
-      if (v === undefined || v === "" || v === "-") return;
-      a[q.key] = MULTI.has(String(q.key)) ? String(v).split(" | ") : v;
-    });
-    out.push({ id: row[1] || "", ts: String(row[0] || "").replace(" ", "T"), a });
+  const PAGE = 1000, MAX = 5000;
+  const rows = [];
+  for (let off = 0; off < MAX; off += PAGE) {
+    const r = await sb().db("responses?select=id,answers,updated_at&order=updated_at.desc&limit=" + PAGE + "&offset=" + off);
+    if (!r.ok) throw new Error("db read failed");
+    rows.push(...r.j);
+    if (r.j.length < PAGE) break;
   }
-  return out.slice(-5000);
+  return rows.reverse().map(x => ({
+    id: x.id || "",
+    ts: x.updated_at || "",
+    a: x.answers && typeof x.answers === "object" ? x.answers : {}
+  }));
 }
 
 /* ---------- Cairo time ---------- */
@@ -150,35 +67,30 @@ function isoToCairo(iso) {
   return new Date(ms + tzOffsetMin(ms) * 60000).toISOString().slice(0, 16);
 }
 
-/* ---------- Form settings (stored in a hidden tab of the same sheet) ---------- */
+/* ---------- Form settings (Supabase: public.settings, a single row with id = 1) ---------- */
 let settingsCache = { v: null, t: 0 };
-const range = () => "'" + SETTINGS_TAB + "'!A1:B3";
 
 async function readSettings(fresh) {
   if (!fresh && settingsCache.v && Date.now() - settingsCache.t < 4000) return settingsCache.v;
-  let s = { state: "open", closeAt: "", message: DEFAULT_MESSAGE };
-  try {
-    const j = await sheets(values(range()));
-    (j.values || []).forEach(r => {
-      if (r[0] === "state" && (r[1] === "open" || r[1] === "closed")) s.state = r[1];
-      if (r[0] === "closeAt") s.closeAt = r[1] || "";
-      if (r[0] === "message" && r[1]) s.message = r[1];
-    });
-  } catch (e) {
-    if (e.status !== 400 && e.status !== 404) throw e; // tab not created yet: defaults
+  const s = { state: "open", closeAt: "", message: DEFAULT_MESSAGE };
+  const r = await sb().db("settings?id=eq.1&select=state,close_at,message&limit=1");
+  if (!r.ok) throw new Error("settings read failed");
+  const row = r.j && r.j[0];
+  if (row) {
+    if (row.state === "open" || row.state === "closed") s.state = row.state;
+    s.closeAt = row.close_at || "";
+    if (row.message) s.message = row.message;
   }
   settingsCache = { v: s, t: Date.now() };
   return s;
 }
 async function writeSettings(s) {
-  const body = JSON.stringify({ values: [["state", s.state], ["closeAt", s.closeAt || ""], ["message", s.message || ""]] });
-  const put = () => sheets(values(range()) + "?valueInputOption=RAW", { method: "PUT", body });
-  try { await put(); }
-  catch (e) {
-    if (e.status !== 400) throw e;
-    await sheets(":batchUpdate", { method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title: SETTINGS_TAB, hidden: true } } }] }) });
-    await put();
-  }
+  const r = await sb().db("settings", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: { id: 1, state: s.state, close_at: s.closeAt || "", message: s.message || "", updated_at: new Date().toISOString() }
+  });
+  if (!r.ok) throw new Error("settings write failed");
   settingsCache = { v: s, t: Date.now() };
 }
 function isOpen(s) {
@@ -237,7 +149,8 @@ function sameOrigin(req) {
 }
 
 module.exports = {
-  QUESTIONS, HEADERS, DEFAULT_MESSAGE, send, cleanText, clientIp, safeEq, makeJwt,
-  appendRow, readRecords, readSettings, writeSettings, isOpen, publicStatus,
-  cairoToISO, isoToCairo, makeCookie, clearCookie, authed, sameOrigin, secretOk, upsertRow, makeUserCookie, clearUserCookie, userId, userSecretOk
+  QUESTIONS, HEADERS, DEFAULT_MESSAGE, send, cleanText, clientIp, safeEq,
+  readRecords, readSettings, writeSettings, isOpen, publicStatus,
+  cairoToISO, isoToCairo, makeCookie, clearCookie, authed, sameOrigin, secretOk,
+  makeUserCookie, clearUserCookie, userId, userSecretOk
 };
