@@ -40,4 +40,27 @@ const validCode = c => /^\d{6,10}$/.test(c);
 const nidHash = n => crypto.createHmac("sha256", process.env.SESSION_SECRET || "").update("nid:" + n).digest("hex");
 const firstName = n => String(n || "").split(" ")[0] || "";
 
-module.exports = { configured, auth, admin, db, errCode, EN, normEmail, validEmail, cleanName, validName, validNid, validPassword, validCode, nidHash, firstName };
+// National ID, stored encrypted (AES-256-GCM) in profiles.nid_enc so authorised staff can recover it.
+// Key: NID_ENC_KEY if set (any long random string), otherwise derived from SESSION_SECRET.
+// Keep the key stable: rotating it makes existing nid_enc values unreadable.
+const nidKey = () => crypto.createHash("sha256").update("nid-enc:" + (process.env.NID_ENC_KEY || process.env.SESSION_SECRET || "")).digest();
+const b64u = b => Buffer.from(b).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+const unb64u = s => Buffer.from(String(s).replace(/-/g, "+").replace(/_/g, "/"), "base64");
+function nidEnc(n) {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv("aes-256-gcm", nidKey(), iv);
+  const ct = Buffer.concat([c.update(String(n), "utf8"), c.final()]);
+  return "v1." + b64u(iv) + "." + b64u(c.getAuthTag()) + "." + b64u(ct);
+}
+// returns the plain national ID, or null if the value is missing or cannot be decrypted
+function nidDec(v) {
+  try {
+    const [ver, iv, tag, ct] = String(v || "").split(".");
+    if (ver !== "v1" || !iv || !tag || !ct) return null;
+    const d = crypto.createDecipheriv("aes-256-gcm", nidKey(), unb64u(iv));
+    d.setAuthTag(unb64u(tag));
+    return Buffer.concat([d.update(unb64u(ct)), d.final()]).toString("utf8");
+  } catch (e) { return null; }
+}
+
+module.exports = { configured, auth, admin, db, errCode, EN, normEmail, validEmail, cleanName, validName, validNid, validPassword, validCode, nidHash, nidEnc, nidDec, firstName };
