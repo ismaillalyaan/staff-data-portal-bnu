@@ -8,7 +8,11 @@ const configured = () => !!(URL_() && ANON() && SERVICE());
 
 async function call(url, key, opts) {
   const o = Object.assign({}, opts);
-  o.headers = Object.assign({ apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json" }, o.headers || {});
+  const base = { apikey: key, "Content-Type": "application/json" };
+  // New sb_publishable_ / sb_secret_ keys are not JWTs: Supabase wants them in the apikey header only.
+  // Legacy anon / service_role keys are JWTs and are still sent as a bearer token too.
+  if (!/^sb_/.test(key)) base.Authorization = "Bearer " + key;
+  o.headers = Object.assign(base, o.headers || {});
   if (o.body && typeof o.body !== "string") o.body = JSON.stringify(o.body);
   const r = await fetch(url, o);
   let j = null; const t = await r.text();
