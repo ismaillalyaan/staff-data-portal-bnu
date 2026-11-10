@@ -19,6 +19,9 @@ create table if not exists public.responses (
   updated_at timestamptz not null default now()
 );
 
+-- Each answer saved with its question number and question text: [{key, n, question, answer}, ...]
+alter table public.responses add column if not exists answers_detail jsonb;
+
 -- Databases created before nid_enc existed:
 alter table public.profiles add column if not exists nid_enc text;
 

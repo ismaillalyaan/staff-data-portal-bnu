@@ -22,6 +22,18 @@ function keep(v) {
   return typeof v === "string" ? stripCtl(v) : "";
 }
 
+// Writes a response row with answers_detail (number + question + answer). If the column has not been
+// created yet (supabase.sql not re-run), the save still goes through without it.
+async function save(url, method, base, detail) {
+  const send = body => S.db(url, { method, headers: { Prefer: "return=minimal" }, body });
+  let r = await send(Object.assign({}, base, { answers_detail: detail }));
+  if (!r.ok && /answers_detail/.test(JSON.stringify(r.j || ""))) {
+    console.error("responses.answers_detail column is missing: run the new line in supabase.sql");
+    r = await send(base);
+  }
+  return r;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.setHeader("Allow", "POST"); return L.send(res, 405, { ok: false }); }
   if (!S.configured() || !L.userSecretOk()) return L.send(res, 503, { ok: false, reason: "config" });
@@ -54,6 +66,9 @@ module.exports = async (req, res) => {
     if (v) { stored[q.key] = v; known++; }
   }
   if (!known) return L.send(res, 400, { ok: false });
+  // Question number, question text and answer, in question order. Text comes from the server's own list.
+  const detail = L.QUESTIONS.filter(q => stored[q.key] !== undefined)
+    .map(q => ({ key: q.key, n: q.n || null, question: q.label, answer: stored[q.key] }));
 
   try {
     const prof = await S.db("profiles?id=eq." + encodeURIComponent(uid) + "&select=id&limit=1");
@@ -68,10 +83,10 @@ module.exports = async (req, res) => {
     if (prev) {
       let history = Array.isArray(prev.history) ? prev.history : [];
       if (JSON.stringify(prev.answers) !== JSON.stringify(stored)) history = [{ ts: prev.updated_at, a: prev.answers }, ...history].slice(0, 10);
-      const u = await S.db("responses?id=eq." + rid, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { answers: stored, history, updated_at: now } });
+      const u = await save("responses?id=eq." + rid, "PATCH", { answers: stored, history, updated_at: now }, detail);
       if (!u.ok) return L.send(res, 502, { ok: false, reason: "db" });
     } else {
-      const u = await S.db("responses", { method: "POST", headers: { Prefer: "return=minimal" }, body: { id: rid, user_id: uid, answers: stored, history: [], created_at: now, updated_at: now } });
+      const u = await save("responses", "POST", { id: rid, user_id: uid, answers: stored, history: [], created_at: now, updated_at: now }, detail);
       if (!u.ok) return L.send(res, 502, { ok: false, reason: "db" });
     }
 
