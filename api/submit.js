@@ -1,4 +1,4 @@
-// Saves (or updates) the signed-in user's response: Supabase is the source of truth, the Google Sheet mirrors it.
+// Saves (or updates) the signed-in user's response in Supabase.
 const crypto = require("crypto");
 const L = require("./_lib.js");
 const S = require("./_sb.js");
@@ -14,19 +14,12 @@ function limited(key) {
   return false;
 }
 
-const stripCtl = s => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‪-‮⁦-⁩]/g, "").trim().slice(0, 3000);
+const stripCtl = s => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/g, "").trim().slice(0, 3000);
 // stored value: text, or a list of texts
 function keep(v) {
   if (Array.isArray(v)) { const a = v.slice(0, 50).map(x => (typeof x === "string" ? stripCtl(x) : "")).filter(Boolean); return a.length ? a : ""; }
   if (typeof v === "number" && Number.isFinite(v)) return String(v);
   return typeof v === "string" ? stripCtl(v) : "";
-}
-// sheet cell: same text, with a guard against spreadsheet formulas
-function cell(v) {
-  let s = Array.isArray(v) ? v.join(" | ") : v;
-  if (!s) return "-";
-  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
-  return s;
 }
 
 module.exports = async (req, res) => {
@@ -82,9 +75,6 @@ module.exports = async (req, res) => {
       if (!u.ok) return L.send(res, 502, { ok: false, reason: "db" });
     }
 
-    const row = [new Date().toLocaleString("sv-SE", { timeZone: "Africa/Cairo" }), rid, ...L.QUESTIONS.map(q => cell(stored[q.key]))];
-    try { await L.upsertRow(rid, row); }
-    catch (e) { console.error("sheet failed:", e && e.message); return L.send(res, 502, { ok: false, reason: "sheet" }); }
     return L.send(res, 200, { ok: true, updated: !!prev, ts: now });
   } catch (e) {
     console.error("submit failed:", e && e.message);
