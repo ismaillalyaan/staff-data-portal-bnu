@@ -414,7 +414,7 @@ let REAL=[], DEMO=[], DEMO_ON=false, RESP=[], SOURCE="local";
 let DB=null, UID=null, CAN_ADMIN=false, LOCKED=false, LOADING=false, SLOW=false, BOOT=true;
 let started=false, slowTimer=null, PSESS=null;
 const syncResp=()=>{RESP=REAL.concat(DEMO_ON?DEMO:[]);};
-const srcName=()=>({cloud:"قاعدة البيانات",server:"الخادم",sheet:"Google Sheets",local:"هذا المتصفح",error:"تعذر الاتصال"})[SOURCE]||"هذا المتصفح";
+const srcName=()=>({cloud:"قاعدة البيانات",server:"الخادم",local:"هذا المتصفح",error:"تعذر الاتصال"})[SOURCE]||"هذا المتصفح";
 const safeId=s=>String(s||"").replace(/[^A-Za-z0-9_\-.~:@+]/g,"").slice(0,120);
 
 async function initCloud(){
@@ -838,7 +838,7 @@ async function adminInit(){
   ADMIN=false;
   if(r.status===401){renderLogin();return;}
   if(r.status===503){box.innerHTML='<div class="empty"><h2>لوحة الإدارة غير مفعّلة</h2><p>أضف المتغيرين ADMIN_PASSWORD وSESSION_SECRET في إعدادات Vercel ثم أعد النشر.</p></div>';return;}
-  if(r.status===502){box.innerHTML='<div class="empty"><h2>تعذر قراءة الجدول</h2><p>تحقق من إعدادات Google ومن مشاركة الجدول مع حساب الخدمة.</p></div>';return;}
+  if(r.status===502){box.innerHTML='<div class="empty"><h2>تعذر قراءة البيانات</h2><p>تحقق من اتصال الخادم بقاعدة بيانات Supabase ومن متغيرات البيئة.</p></div>';return;}
   box.innerHTML='<div class="empty"><h2>تعذر الاتصال بالخادم</h2><p>حاول مرة أخرى بعد قليل.</p></div>';
 }
 function renderLogin(){
@@ -871,7 +871,7 @@ function renderAdmin(){
     <div class="af"><label for="admText">رسالة تظهر للزوار عند الإغلاق</label><textarea id="admText" maxlength="500">${esc(s.message||"")}</textarea></div>
     <div class="amsg ${ADM.note?"ok":""}" id="admSaveMsg" role="status">${esc(ADM.note)}</div>
     <button class="btn" id="admSave" type="button">حفظ</button>`)+
-   fig("البيانات",n+" استجابة",`<div class="row" style="justify-content:center"><button class="btn ghost" id="admRef" type="button">تحديث</button><button class="btn ghost" id="admCsv" type="button">تصدير CSV</button><button class="btn ghost" id="admJson" type="button">تصدير JSON</button><button class="btn ghost" id="admOut" type="button">تسجيل الخروج</button></div><p class="src">المصدر: Google Sheets. ملفات التصدير تحتوي بيانات شخصية، فاحفظها في مكان آمن.</p>`)+
+   fig("البيانات",n+" استجابة",`<div class="row" style="justify-content:center"><button class="btn ghost" id="admRef" type="button">تحديث</button><button class="btn ghost" id="admCsv" type="button">تصدير CSV</button><button class="btn ghost" id="admJson" type="button">تصدير JSON</button><button class="btn ghost" id="admOut" type="button">تسجيل الخروج</button></div><p class="src">المصدر: قاعدة البيانات (Supabase). ملفات التصدير تحتوي بيانات شخصية، فاحفظها في مكان آمن.</p>`)+
    `</div>`;
   ADM.note="";
   $("#admSave").onclick=async()=>{
