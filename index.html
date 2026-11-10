@@ -872,8 +872,24 @@ function renderAdmin(){
     <div class="amsg ${ADM.note?"ok":""}" id="admSaveMsg" role="status">${esc(ADM.note)}</div>
     <button class="btn" id="admSave" type="button">حفظ</button>`)+
    fig("البيانات",n+" استجابة",`<div class="row" style="justify-content:center"><button class="btn ghost" id="admRef" type="button">تحديث</button><button class="btn ghost" id="admCsv" type="button">تصدير CSV</button><button class="btn ghost" id="admJson" type="button">تصدير JSON</button><button class="btn ghost" id="admOut" type="button">تسجيل الخروج</button></div><p class="src">المصدر: قاعدة البيانات (Supabase). ملفات التصدير تحتوي بيانات شخصية، فاحفظها في مكان آمن.</p>`)+
+   fig("إعادة تعيين كلمة مرور مستخدم","للمسؤول فقط. أعطِ المستخدم الكلمة الجديدة بنفسك.",`
+    <div class="af"><label for="rpE">بريد المستخدم</label><input id="rpE" type="email" dir="ltr" autocomplete="off" maxlength="120"></div>
+    <div class="af"><label for="rpP">كلمة المرور الجديدة</label><input id="rpP" type="text" dir="ltr" autocomplete="off" maxlength="72"><p class="hint">8 أحرف على الأقل وتحتوي حرفًا ورقمًا.</p></div>
+    <div class="amsg" id="rpM" role="status"></div>
+    <button class="btn" id="rpB" type="button">إعادة التعيين</button>`)+
    `</div>`;
   ADM.note="";
+  $("#rpB").onclick=async()=>{
+    const e=$("#rpE").value.trim(), p=$("#rpP").value, b=$("#rpB"), m=$("#rpM"); m.classList.remove("ok"); m.textContent="";
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){m.textContent="أدخل بريدًا صحيحًا.";return;}
+    if(p.length<8||!/[A-Za-z؀-ۿ]/.test(p)||!/\d/.test(p)){m.textContent="كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي حرفًا ورقمًا.";return;}
+    b.disabled=true;
+    const r=await api("/api/admin",{action:"resetpw",email:e,password:p});
+    b.disabled=false;
+    if(r.status===401){renderLogin();return;}
+    if(r.status===200&&r.j&&r.j.ok){$("#rpE").value="";$("#rpP").value="";m.classList.add("ok");m.textContent="تم تغيير كلمة المرور.";return;}
+    m.textContent=r.status===404?"لا يوجد حساب بهذا البريد.":"تعذر التنفيذ. حاول مرة أخرى.";
+  };
   $("#admSave").onclick=async()=>{
     const st=($$("input[name=admState]").find(i=>i.checked)||{}).value;
     const b=$("#admSave"), m=$("#admSaveMsg"); b.disabled=true; m.classList.remove("ok"); m.textContent="";
@@ -1074,14 +1090,13 @@ function renderAuth(view){
   clearInterval(rsTimer);
   const box=$("#authBody"), title=$("#authTitle");
   if(CFGERR){title.textContent="الخدمة غير متاحة"; box.innerHTML='<p class="lead">لم يتم إعداد خدمة الحسابات بعد. تواصل مع مسؤول الموقع.</p>'; return;}
-  if(view==="reset"&&!PEND) view="forgot";
-  if(!["login","signup","forgot","reset"].includes(view)) view="login";
-  ({login:rLogin,signup:rSignup,forgot:rForgot,reset:rReset})[view](box,title);
+  if(!["login","signup"].includes(view)) view="login";
+  ({login:rLogin,signup:rSignup})[view](box,title);
 }
 function rLogin(box,title){
   title.textContent="تسجيل الدخول";
   box.innerHTML=`<form id="liF" novalidate>${emField("liE","البريد الإلكتروني")}${pwField("liP","كلمة المرور","current-password")}<div class="amsg" id="liM" role="alert"></div><button class="btn" id="liB" type="submit">دخول</button></form>
-   <p class="alt"><a href="#forgot">نسيت كلمة المرور؟</a></p><p class="alt">ليس لديك حساب؟ <a href="#signup">إنشاء حساب جديد</a></p>`;
+   <p class="alt">نسيت كلمة المرور؟ تواصل مع مسؤول الموقع.</p><p class="alt">ليس لديك حساب؟ <a href="#signup">إنشاء حساب جديد</a></p>`;
   bindPw(box);
   $("#liF").onsubmit=busy($("#liB"),async()=>{
     aMsg("liM","");
@@ -1120,56 +1135,6 @@ function rSignup(box,title){
     aMsg("suM",reasonText(r));
   });
 }
-function startResend(){
-  const b=$("#rsB"); if(!b) return;
-  const tick=()=>{const s=Math.ceil((resendAt-Date.now())/1000); if(s>0){b.disabled=true; b.textContent="إعادة الإرسال بعد "+s+" ثانية";} else {b.disabled=false; b.textContent="إعادة إرسال الرمز";}};
-  tick(); rsTimer=setInterval(tick,1000);
-}
-function codeForm(box,title,{heading,mode}){
-  title.textContent=heading;
-  const reset=mode==="reset";
-  box.innerHTML=`<p class="lead" style="margin-top:0">أرسلنا رمزًا مكوّنًا من 6 أرقام إلى <b dir="ltr">${esc(PEND)}</b>. أدخله هنا${reset?" مع كلمة المرور الجديدة":""}.</p>
-   <form id="cdF" novalidate><div class="af"><label for="cdC">رمز التحقق</label><input id="cdC" type="text" inputmode="numeric" dir="ltr" maxlength="10" autocomplete="one-time-code" style="letter-spacing:.3em;font-size:1.3rem;text-align:center"></div>
-   ${reset?pwField("cdP","كلمة المرور الجديدة","new-password")+'<p class="rules">8 أحرف على الأقل وتحتوي حرفًا ورقمًا.</p>':""}
-   <div class="amsg" id="cdM" role="alert"></div><button class="btn" id="cdB" type="submit">${reset?"تغيير كلمة المرور":"تأكيد"}</button></form>
-   <p class="alt"><button type="button" class="pwt" id="rsB" style="position:static;transform:none"></button></p>
-   <p class="alt"><a href="#${reset?"forgot":"signup"}">${reset?"تغيير البريد":"تغيير البريد الإلكتروني"}</a> · <a href="#login">العودة لتسجيل الدخول</a></p>`;
-  bindPw(box);
-  $("#cdC").addEventListener("input",e=>{const n=toEn(e.target.value).replace(/\D/g,"").slice(0,10); if(n!==e.target.value) e.target.value=n;});
-  $("#cdF").onsubmit=busy($("#cdB"),async()=>{
-    aMsg("cdM","");
-    const code=toEn($("#cdC").value).replace(/\D/g,"");
-    if(code.length<6){aMsg("cdM","أدخل الرمز المكوّن من 6 أرقام.");return;}
-    let body={action:"reset",email:PEND,code};
-    if(reset){const p=$("#cdP").value; if(p.length<8||!/[A-Za-z؀-ۿ]/.test(p)||!/\d/.test(p)){aMsg("cdM",REASON.password);return;} body.password=p;}
-    const r=await api("/api/auth",body);
-    if(r.status===200&&r.j&&r.j.ok){setPend(""); await loadMe(); go2("account"); return;}
-    aMsg("cdM",reasonText(r));
-  });
-  $("#rsB").onclick=async()=>{
-    aMsg("cdM","");
-    const r=await api("/api/auth",{action:"forgot",email:PEND});
-    if(r.status===200){resendAt=Date.now()+60000; aMsg("cdM","تم إرسال رمز جديد.",true);} else aMsg("cdM",reasonText(r));
-    startResend();
-  };
-  startResend();
-}
-function rReset(box,title){codeForm(box,title,{heading:"كلمة مرور جديدة",mode:"reset"});}
-function rForgot(box,title){
-  title.textContent="استعادة كلمة المرور";
-  box.innerHTML=`<p class="lead" style="margin-top:0">اكتب بريدك وسنرسل إليه رمزًا لتعيين كلمة مرور جديدة.</p>
-   <form id="fgF" novalidate>${emField("fgE","البريد الإلكتروني")}<div class="amsg" id="fgM" role="alert"></div><button class="btn" id="fgB" type="submit">إرسال الرمز</button></form>
-   <p class="alt"><a href="#login">العودة لتسجيل الدخول</a></p>`;
-  $("#fgF").onsubmit=busy($("#fgB"),async()=>{
-    aMsg("fgM","");
-    const email=$("#fgE").value.trim().toLowerCase();
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){aMsg("fgM",REASON.email);return;}
-    const r=await api("/api/auth",{action:"forgot",email});
-    if(r.status===200){setPend(email); resendAt=Date.now()+60000; go2("reset"); return;}
-    aMsg("fgM",reasonText(r));
-  });
-}
-
 /* ---------- صفحة المستخدم ---------- */
 function ansHtml(a){
   const rows=ALL.filter(q=>a[q.key]!=null&&a[q.key]!=="").map(q=>{

@@ -1,5 +1,6 @@
 // Admin API: login/logout, open-close settings, and the collected data (password protected).
 const L = require("./_lib.js");
+const S = require("./_sb.js");
 
 const MAX_BODY = 10 * 1024;
 const FAIL_MAX = 5, FAIL_WINDOW = 15 * 60 * 1000, SESSION_SEC = 2 * 60 * 60;
@@ -63,6 +64,25 @@ module.exports = async (req, res) => {
       return L.send(res, 200, { ok: true, settings: view(s) });
     } catch (e) {
       console.error("admin save failed:", e && e.message);
+      return L.send(res, 502, { ok: false });
+    }
+  }
+
+  // Reset a user's password. Only reachable with the admin session; users have no reset option of their own.
+  if (b.action === "resetpw") {
+    if (!S.configured()) return L.send(res, 503, { ok: false, error: "not_configured" });
+    const email = S.normEmail(b.email);
+    if (!S.validEmail(email)) return L.send(res, 400, { ok: false, error: "bad_email" });
+    if (!S.validPassword(b.password)) return L.send(res, 400, { ok: false, error: "bad_password" });
+    try {
+      const p = await S.db("profiles?email=eq." + encodeURIComponent(email) + "&select=id&limit=1");
+      if (!p.ok) return L.send(res, 502, { ok: false });
+      if (!p.j || !p.j[0]) return L.send(res, 404, { ok: false, error: "not_found" });
+      const u = await S.admin("/users/" + encodeURIComponent(p.j[0].id), { method: "PUT", body: { password: b.password } });
+      if (!u.ok) return L.send(res, 502, { ok: false });
+      return L.send(res, 200, { ok: true });
+    } catch (e) {
+      console.error("admin resetpw failed:", e && e.message);
       return L.send(res, 502, { ok: false });
     }
   }

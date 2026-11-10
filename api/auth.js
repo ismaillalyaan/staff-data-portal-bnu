@@ -1,8 +1,8 @@
-// Accounts: sign up (no email verification), sign in, session, profile, password reset by email code.
-// Supabase Auth keeps the passwords, Supabase Postgres keeps profiles/responses, reset codes are mailed through Gmail SMTP.
+// Accounts: sign up (no email verification), sign in, session, profile.
+// Supabase Auth keeps the passwords, Supabase Postgres keeps profiles/responses.
+// Password resets are done by the admin only (api/admin.js, action "resetpw").
 const L = require("./_lib.js");
 const S = require("./_sb.js");
-const C = require("./_codes.js");
 
 const SESSION_SEC = 7 * 24 * 3600;
 const buckets = new Map();
@@ -112,32 +112,6 @@ async function signin(req, res, b, ip) {
   return L.send(res, 401, { ok: false, reason: "credentials" });
 }
 
-async function forgot(req, res, b, ip) {
-  if (!C.mailReady()) return L.send(res, 503, { ok: false, reason: "config" }); // reset codes still need Gmail
-  const email = S.normEmail(b.email);
-  if (!S.validEmail(email)) return L.send(res, 400, { ok: false, reason: "email" });
-  if (limited("fg:" + email, 4, 3600000) || limited("fg:" + ip, 100, 3600000)) return L.send(res, 429, { ok: false, reason: "rate" });
-  const p = await profileByEmail(email);
-  if (p && (await isConfirmed(p.id))) {
-    const sent = await C.sendCode(email, "reset");
-    if (sent === "wait") return L.send(res, 429, { ok: false, reason: "wait" });
-    if (sent === "mail") return L.send(res, 502, { ok: false, reason: "mail" });
-  }
-  return L.send(res, 200, { ok: true });
-}
-async function reset(req, res, b, ip) {
-  if (!C.mailReady()) return L.send(res, 503, { ok: false, reason: "config" });
-  const email = S.normEmail(b.email), code = S.EN(b.code).replace(/\s/g, "");
-  if (!S.validEmail(email) || !S.validCode(code)) return L.send(res, 400, { ok: false, reason: "code" });
-  if (!S.validPassword(b.password)) return L.send(res, 400, { ok: false, reason: "password" });
-  if (limited("vf:" + email, 10, 900000) || limited("vf:" + ip, 200, 900000)) return L.send(res, 429, { ok: false, reason: "rate" });
-  const p = await profileByEmail(email);
-  if (!p || !(await C.checkCode(email, "reset", code))) return L.send(res, 400, { ok: false, reason: "code" });
-  const u = await S.admin("/users/" + enc(p.id), { method: "PUT", body: { password: b.password } });
-  if (!u.ok) return L.send(res, 400, { ok: false, reason: "password" });
-  return startSession(res, p.id, { ok: true });
-}
-
 async function updateProfile(req, res, b, uid) {
   const p = await profileById(uid);
   if (!p) return L.send(res, 401, { ok: false });
@@ -173,8 +147,6 @@ module.exports = async (req, res) => {
     switch (b.action) {
       case "signup": return await signup(req, res, b, ip);
       case "login": return await signin(req, res, b, ip);
-      case "forgot": return await forgot(req, res, b, ip);
-      case "reset": return await reset(req, res, b, ip);
       case "logout": return L.send(res, 200, { ok: true }, { "Set-Cookie": L.clearUserCookie() });
       case "profile": {
         const uid = L.userId(req);
