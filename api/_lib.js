@@ -42,7 +42,7 @@ async function readRecords() {
   }
   return rows.reverse().map(x => ({
     id: x.id || "",
-    ts: x.updated_at || "",
+    ts: isoToCairo(x.updated_at),
     a: x.answers && typeof x.answers === "object" ? x.answers : {}
   }));
 }
