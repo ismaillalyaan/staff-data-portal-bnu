@@ -82,7 +82,7 @@ async function signup(req, res, b, ip) {
   }
   const id = a.j && a.j.id;
   if (!id) return L.send(res, 502, { ok: false, reason: "auth" });
-  const ins = await S.db("profiles", { method: "POST", headers: { Prefer: "return=minimal" }, body: { id, email, full_name: name, nid_hash: hash, nid_last4: nid.slice(-4) } });
+  const ins = await S.db("profiles", { method: "POST", headers: { Prefer: "return=minimal" }, body: { id, email, full_name: name, nid_hash: hash, nid_enc: S.nidEnc(nid), nid_last4: nid.slice(-4) } });
   if (!ins.ok) {
     await S.admin("/users/" + enc(id), { method: "DELETE" });
     return L.send(res, ins.status === 409 ? 409 : 502, { ok: false, reason: ins.status === 409 ? "nid_exists" : "db" });
