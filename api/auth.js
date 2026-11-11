@@ -1,6 +1,8 @@
 // Accounts: sign up (no email verification), sign in, session, profile.
 // Supabase Auth keeps the passwords, Supabase Postgres keeps profiles/responses.
 // Password resets are done by the admin only (api/admin.js, action "resetpw").
+// Once a response is submitted it is locked: the user sends an edit request (action "request_edit"),
+// an admin approves it in api/admin.js, and api/submit.js lets exactly one edit through per approval.
 const L = require("./_lib.js");
 const S = require("./_sb.js");
 
@@ -48,7 +50,40 @@ async function me(req, res) {
   const r = await S.db("responses?user_id=eq." + enc(uid) + "&select=answers,history,created_at,updated_at&limit=1");
   const row = r.ok && Array.isArray(r.j) && r.j[0];
   const response = row ? { a: row.answers || {}, ts: row.updated_at, created: row.created_at, history: Array.isArray(row.history) ? row.history : [] } : null;
-  return L.send(res, 200, { user: pub(p), response, status });
+  const er = await S.db("edit_requests?user_id=eq." + enc(uid) + "&select=id,reason,status,admin_note,created_at,decided_at&order=created_at.desc&limit=5");
+  const reqs = er.ok && Array.isArray(er.j) ? er.j : [];
+  const open = reqs.find(x => x.status === "pending" || x.status === "approved") || null;
+  const last = reqs.find(x => x.status !== "pending" && x.status !== "approved") || null;
+  const edit = {
+    state: open ? open.status : "none",
+    request: open ? { reason: open.reason, createdAt: open.created_at, decidedAt: open.decided_at, note: open.admin_note || "" } : null,
+    last: last ? { status: last.status, note: last.admin_note || "", decidedAt: last.decided_at } : null
+  };
+  const admin = !!(await L.isAdminUser(uid));
+  return L.send(res, 200, { user: pub(p), response, status, edit, admin });
+}
+
+// User asks for permission to edit a response they already submitted.
+async function requestEdit(req, res, b, uid) {
+  if (!(await profileById(uid))) return L.send(res, 401, { ok: false });
+  const reason = L.cleanText(b.reason, 500);
+  if (reason.length < 5) return L.send(res, 400, { ok: false, reason: "reason" });
+  if (limited("er:" + uid, 10, 24 * 3600000)) return L.send(res, 429, { ok: false, reason: "rate" });
+  try { if (!L.publicStatus(await L.readSettings(false)).open) return L.send(res, 403, { ok: false, reason: "closed" }); } catch (e) { /* keep going */ }
+  const r = await S.db("responses?user_id=eq." + enc(uid) + "&select=id&limit=1");
+  if (!r.ok) return L.send(res, 502, { ok: false, reason: "db" });
+  if (!r.j[0]) return L.send(res, 400, { ok: false, reason: "no_response" }); // nothing to edit yet: just fill the form
+  const open = await S.db("edit_requests?user_id=eq." + enc(uid) + "&status=in.(pending,approved)&select=id&limit=1");
+  if (!open.ok) return L.send(res, 502, { ok: false, reason: "db" });
+  if (open.j[0]) return L.send(res, 409, { ok: false, reason: "already_open" });
+  const ins = await S.db("edit_requests", { method: "POST", headers: { Prefer: "return=minimal" }, body: { user_id: uid, reason } });
+  if (!ins.ok) return L.send(res, ins.status === 409 ? 409 : 502, { ok: false, reason: ins.status === 409 ? "already_open" : "db" }); // 409 = the unique index caught a double click
+  return L.send(res, 200, { ok: true });
+}
+async function cancelEdit(req, res, uid) {
+  const d = await S.db("edit_requests?user_id=eq." + enc(uid) + "&status=eq.pending", { method: "DELETE", headers: { Prefer: "return=minimal" } });
+  if (!d.ok) return L.send(res, 502, { ok: false, reason: "db" });
+  return L.send(res, 200, { ok: true });
 }
 
 async function signup(req, res, b, ip) {
@@ -152,6 +187,16 @@ module.exports = async (req, res) => {
         const uid = L.userId(req);
         if (!uid) return L.send(res, 401, { ok: false });
         return await updateProfile(req, res, b, uid);
+      }
+      case "request_edit": {
+        const uid = L.userId(req);
+        if (!uid) return L.send(res, 401, { ok: false });
+        return await requestEdit(req, res, b, uid);
+      }
+      case "cancel_edit": {
+        const uid = L.userId(req);
+        if (!uid) return L.send(res, 401, { ok: false });
+        return await cancelEdit(req, res, uid);
       }
       default: return L.send(res, 400, { ok: false });
     }

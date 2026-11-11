@@ -42,9 +42,39 @@ create table if not exists public.email_codes (
   primary key (email, purpose)
 );
 
+-- Admins are normal accounts (Supabase Auth users) listed here. There is no shared admin password.
+-- The first owner is added once by hand (see README), further admins are added from the admin panel.
+create table if not exists public.admins (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  role       text not null default 'admin' check (role in ('owner','admin')),
+  created_at timestamptz not null default now()
+);
+
+-- Edit requests: a submitted response is locked. The user asks, an admin approves, and one approval allows one edit.
+-- pending -> approved -> used   (or pending/approved -> rejected)
+create table if not exists public.edit_requests (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  reason     text not null default '',
+  status     text not null default 'pending' check (status in ('pending','approved','rejected','used')),
+  admin_note text not null default '',
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  decided_by uuid references auth.users(id),
+  used_at    timestamptz
+);
+-- at most one open request (pending or approved-but-unused) per user
+create unique index if not exists edit_requests_one_open_per_user on public.edit_requests (user_id) where status in ('pending','approved');
+create index if not exists edit_requests_status_created on public.edit_requests (status, created_at desc);
+
 -- Row Level Security on with no policies: the public (anon) key can read or write nothing.
 -- Only the server, using the service role key, touches these tables.
 alter table public.profiles    enable row level security;
 alter table public.responses   enable row level security;
 alter table public.email_codes enable row level security;
 alter table public.settings enable row level security;
+alter table public.admins        enable row level security;
+alter table public.edit_requests enable row level security;
+
+-- First owner (run once, with the email of an account that already signed up on the portal):
+-- insert into public.admins (user_id, role) select id, 'owner' from auth.users where email = 'you@example.com' on conflict (user_id) do nothing;

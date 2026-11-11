@@ -102,45 +102,60 @@ function publicStatus(s) {
   return { open: isOpen(s), message: s.message || DEFAULT_MESSAGE, closeAt: s.closeAt || null };
 }
 
-/* ---------- Admin session (signed cookie) ---------- */
+/* ---------- Signed cookies (HMAC with SESSION_SECRET) ---------- */
+// There is no shared admin password anymore. An admin is a normal account that has a row in public.admins.
+// The "adm" cookie only proves "this browser logged in as admin X recently"; every admin request
+// re-checks public.admins, so removing someone from that table cuts their access immediately.
 const COOKIE = "adm";
-const secretOk = () => (process.env.SESSION_SECRET || "").length >= 32 && !!process.env.ADMIN_PASSWORD;
-const sign = p => b64url(crypto.createHmac("sha256", process.env.SESSION_SECRET).update(p).digest());
-function makeCookie(maxAgeSec) {
-  const p = b64url(JSON.stringify({ exp: Date.now() + maxAgeSec * 1000 }));
-  return COOKIE + "=" + p + "." + sign(p) + "; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=" + maxAgeSec;
-}
-const clearCookie = () => COOKIE + "=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0";
-function authed(req) {
-  if (!secretOk()) return false;
-  const m = new RegExp("(?:^|;\\s*)" + COOKIE + "=([^;]+)").exec(req.headers.cookie || "");
-  if (!m) return false;
-  const [p, sig] = m[1].split(".");
-  if (!p || !sig) return false;
-  const good = sign(p);
-  if (sig.length !== good.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good))) return false;
-  try { return JSON.parse(Buffer.from(p.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString()).exp > Date.now(); } catch (e) { return false; }
-}
-/* ---------- User session (signed cookie holding the Supabase user id) ---------- */
 const UCOOKIE = "usr";
-const userSecretOk = () => (process.env.SESSION_SECRET || "").length >= 32;
-function makeUserCookie(uid, maxAgeSec) {
-  const p = b64url(JSON.stringify({ uid, exp: Date.now() + maxAgeSec * 1000 }));
-  return UCOOKIE + "=" + p + "." + sign(p) + "; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=" + maxAgeSec;
+const secretOk = () => (process.env.SESSION_SECRET || "").length >= 32;
+const userSecretOk = secretOk;
+const sign = p => b64url(crypto.createHmac("sha256", process.env.SESSION_SECRET).update(p).digest());
+const unb64 = s => Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString();
+
+function makeSigned(name, purpose, uid, maxAgeSec) {
+  const p = b64url(JSON.stringify({ uid, p: purpose, exp: Date.now() + maxAgeSec * 1000 }));
+  return name + "=" + p + "." + sign(p) + "; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=" + maxAgeSec;
 }
-const clearUserCookie = () => UCOOKIE + "=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0";
-function userId(req) {
-  if (!userSecretOk()) return null;
-  const m = new RegExp("(?:^|;\\s*)" + UCOOKIE + "=([^;]+)").exec(req.headers.cookie || "");
+const clearSigned = name => name + "=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0";
+// returns the uid inside a valid, unexpired cookie of the given purpose, else null
+function readSigned(req, name, purpose) {
+  if (!secretOk()) return null;
+  const m = new RegExp("(?:^|;\\s*)" + name + "=([^;]+)").exec(req.headers.cookie || "");
   if (!m) return null;
   const [p, sig] = m[1].split(".");
   if (!p || !sig) return null;
   const good = sign(p);
   if (sig.length !== good.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good))) return null;
   try {
-    const o = JSON.parse(Buffer.from(p.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString());
-    return o.exp > Date.now() && /^[0-9a-f-]{36}$/i.test(o.uid) ? o.uid : null;
+    const o = JSON.parse(unb64(p));
+    if (!(o.exp > Date.now()) || !/^[0-9a-f-]{36}$/i.test(String(o.uid))) return null;
+    // user cookies issued before purposes existed carry no "p"; admin cookies must always carry "adm"
+    if (purpose === "usr" ? (o.p && o.p !== "usr") : o.p !== purpose) return null;
+    return o.uid;
   } catch (e) { return null; }
+}
+
+const makeCookie = (uid, maxAgeSec) => makeSigned(COOKIE, "adm", uid, maxAgeSec);
+const clearCookie = () => clearSigned(COOKIE);
+const makeUserCookie = (uid, maxAgeSec) => makeSigned(UCOOKIE, "usr", uid, maxAgeSec);
+const clearUserCookie = () => clearSigned(UCOOKIE);
+const userId = req => readSigned(req, UCOOKIE, "usr");
+
+// Admin check: valid admin cookie AND the account is still listed in public.admins.
+// Returns { uid, role } or null.
+async function adminOf(req) {
+  const uid = readSigned(req, COOKIE, "adm");
+  if (!uid) return null;
+  const r = await sb().db("admins?user_id=eq." + encodeURIComponent(uid) + "&select=role&limit=1");
+  if (!r.ok) throw new Error("admin lookup failed");
+  const row = Array.isArray(r.j) && r.j[0];
+  return row ? { uid, role: row.role } : null;
+}
+// Is this account an admin? (used to show the admin link to the user)
+async function isAdminUser(uid) {
+  const r = await sb().db("admins?user_id=eq." + encodeURIComponent(uid) + "&select=role&limit=1");
+  return r.ok && Array.isArray(r.j) && !!r.j[0] ? r.j[0].role : null;
 }
 function sameOrigin(req) {
   const o = req.headers.origin;
@@ -151,6 +166,6 @@ function sameOrigin(req) {
 module.exports = {
   QUESTIONS, HEADERS, DEFAULT_MESSAGE, send, cleanText, clientIp, safeEq,
   readRecords, readSettings, writeSettings, isOpen, publicStatus,
-  cairoToISO, isoToCairo, makeCookie, clearCookie, authed, sameOrigin, secretOk,
+  cairoToISO, isoToCairo, makeCookie, clearCookie, adminOf, isAdminUser, sameOrigin, secretOk,
   makeUserCookie, clearUserCookie, userId, userSecretOk
 };

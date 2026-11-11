@@ -173,6 +173,12 @@ a{color:inherit}
 .q .n{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:50%;background:var(--accent);color:var(--navy);font-size:.8rem;margin-inline-end:10px;font-weight:800}
 .req{color:var(--accent-d);margin-right:3px}
 .hint{color:var(--muted);font-size:.85rem;margin:0 0 8px}
+.req{border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin:0 0 12px;background:#fff;font-size:.9rem}
+.req b{color:var(--title)}
+.req .why{margin:6px 0 8px;white-space:pre-wrap}
+.req input[type=text]{width:100%}
+.chip.no{background:#fde3e3;color:#9b1c1c}
+.chip.wait{background:#fff1d6;color:#8a5a00}
 input[type=text],input[type=password],input[type=email],input[type=tel],input[type=number],input[type=date],input[type=datetime-local],select,textarea,summary{width:100%;font:inherit;color:var(--ink);background:#fff;border:1px solid #c9d3d8;border-radius:var(--r);padding:10px 14px}
 textarea{min-height:96px;resize:vertical}
 input:focus,select:focus,textarea:focus,summary:focus{outline:3px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
@@ -601,7 +607,7 @@ $("#send").onclick=async()=>{
     form.hidden=true; $("#fnav").hidden=true; stepsEl.hidden=true; $(".bar").hidden=true;
     const d=$("#done"); d.hidden=false;
     d.innerHTML=`<div class="done-box"><h2>${upd?"تم حفظ التعديلات":"تم إرسال الاستمارة"}</h2>
-     <p class="lead">شكرًا لك، تم تسجيل بياناتك. يمكنك مراجعة إجاباتك أو تعديلها في أي وقت من صفحة حسابك.</p>
+     <p class="lead">شكرًا لك، تم تسجيل بياناتك. ${upd?"استُهلكت موافقة التعديل، ولأي تعديل جديد أرسل طلبًا من صفحة حسابك.":"يمكنك مراجعة إجاباتك من صفحة حسابك، ولتعديلها لاحقًا أرسل طلب تعديل إلى المسؤول."}</p>
      <div class="row"><a class="btn" href="#account">حسابي</a><button class="btn ghost" id="dj">تنزيل نسخة JSON</button><button class="btn ghost" id="dc">تنزيل نسخة CSV</button></div></div>`;
     const rec={id:"",ts:new Date().toISOString(),a};
     $("#dj").onclick=()=>download("response.json","application/json",JSON.stringify({questions:labelMap(),responses:[rec]},null,2));
@@ -805,7 +811,8 @@ $("#fileIn").onchange=async e=>{
 /* ===== لوحة الإدارة (محمية بكلمة مرور على الخادم) ===== */
 let ADMIN=false, lastPage="";
 const isAdmin=()=>ADMIN, getSession=()=>null;
-const ADM={records:[],settings:null,note:"",view:"all",tab:0};
+const ADM={records:[],settings:null,note:"",view:"all",tab:0,requests:[],admins:[],me:null};
+const REQ_ST={pending:["قيد المراجعة","wait"],approved:["موافق عليه","ok"],rejected:["مرفوض","no"],used:["استُخدم","" ]};
 
 async function api(path,body){
   const o={credentials:"same-origin",cache:"no-store"};
@@ -834,36 +841,44 @@ async function adminInit(){
   const box=$("#adminBody");
   box.innerHTML='<p class="src">جارٍ التحميل…</p>'; $("#homeBody").innerHTML="";
   const r=await api("/api/admin");
-  if(r.status===200&&r.j&&r.j.ok){ADMIN=true;ADM.records=r.j.records||[];ADM.settings=r.j.settings;renderAdmin();return;}
+  if(r.status===200&&r.j&&r.j.ok){ADMIN=true;ADM.records=r.j.records||[];ADM.settings=r.j.settings;ADM.requests=r.j.requests||[];ADM.admins=r.j.admins||[];ADM.me=r.j.me||null;renderAdmin();return;}
   ADMIN=false;
   if(r.status===401){renderLogin();return;}
-  if(r.status===503){box.innerHTML='<div class="empty"><h2>لوحة الإدارة غير مفعّلة</h2><p>أضف المتغيرين ADMIN_PASSWORD وSESSION_SECRET في إعدادات Vercel ثم أعد النشر.</p></div>';return;}
+  if(r.status===503){box.innerHTML='<div class="empty"><h2>لوحة الإدارة غير مفعّلة</h2><p>تحقق من متغيرات البيئة في Vercel: SESSION_SECRET (32 حرفًا على الأقل) ومفاتيح Supabase، ثم أعد النشر.</p></div>';return;}
   if(r.status===502){box.innerHTML='<div class="empty"><h2>تعذر قراءة البيانات</h2><p>تحقق من اتصال الخادم بقاعدة بيانات Supabase ومن متغيرات البيئة.</p></div>';return;}
   box.innerHTML='<div class="empty"><h2>تعذر الاتصال بالخادم</h2><p>حاول مرة أخرى بعد قليل.</p></div>';
 }
 function renderLogin(){
   $("#adminBody").innerHTML=`<form class="auth-card" id="admForm" novalidate style="max-width:440px;margin:0 auto">
-   <div class="af"><label for="admPass">كلمة المرور</label><div class="pw"><input id="admPass" type="password" dir="ltr" autocomplete="current-password"><button type="button" class="pwt" id="admEye">إظهار</button></div></div>
+   <div class="af"><label for="admEm">البريد الإلكتروني للمسؤول</label><input id="admEm" type="email" dir="ltr" autocomplete="username" maxlength="120"></div>
+   <div class="af"><label for="admPass">كلمة المرور</label><div class="pw"><input id="admPass" type="password" dir="ltr" autocomplete="current-password" maxlength="200"><button type="button" class="pwt" id="admEye">إظهار</button></div></div>
+   <p class="hint">الدخول لحسابات المسؤولين فقط. استخدم بريد حسابك وكلمة مروره.</p>
    <div class="amsg" id="admMsg" role="alert"></div><button type="submit" class="btn" id="admBtn">دخول</button></form>`;
   $("#admEye").onclick=()=>{const i=$("#admPass");i.type=i.type==="password"?"text":"password";$("#admEye").textContent=i.type==="password"?"إظهار":"إخفاء";};
   $("#admForm").onsubmit=async e=>{
     e.preventDefault();
-    const pw=$("#admPass").value, m=$("#admMsg"), b=$("#admBtn");
-    if(!pw){m.textContent="أدخل كلمة المرور.";return;}
+    const em=$("#admEm").value.trim(), pw=$("#admPass").value, m=$("#admMsg"), b=$("#admBtn");
+    if(!em||!pw){m.textContent="أدخل البريد وكلمة المرور.";return;}
     b.disabled=true; m.textContent="";
-    const r=await api("/api/admin",{action:"login",password:pw});
+    const r=await api("/api/admin",{action:"login",email:em,password:pw});
     b.disabled=false;
     if(r.status===200){adminInit();return;}
     $("#admPass").value="";
-    m.textContent=r.status===429?"محاولات كثيرة. حاول بعد 15 دقيقة.":r.status===401?"كلمة المرور غير صحيحة.":r.status===503?"لوحة الإدارة غير مفعّلة بعد.":"تعذر الاتصال بالخادم.";
+    m.textContent=r.status===429?"محاولات كثيرة. حاول بعد 15 دقيقة.":r.status===401?"البريد أو كلمة المرور غير صحيحة، أو الحساب ليس حساب مسؤول.":r.status===503?"لوحة الإدارة غير مفعّلة بعد.":"تعذر الاتصال بالخادم.";
   };
 }
 
 /* لوحة التحكم */
 function stateText(s){return s.open?"الاستمارة مفتوحة الآن":(s.state==="closed"?"الاستمارة مغلقة الآن":"أُغلقت تلقائيًّا بعد انتهاء الموعد المحدد");}
 function renderAdmin(){
-  const s=ADM.settings, n=ADM.records.length;
-  $("#adminBody").innerHTML=`<div class="grid2">`+
+  const s=ADM.settings, n=ADM.records.length, owner=!!(ADM.me&&ADM.me.role==="owner");
+  const pend=ADM.requests.filter(x=>x.status==="pending"), done=ADM.requests.filter(x=>x.status!=="pending").slice(0,10);
+  const reqItem=x=>`<div class="req"><b>${esc(x.name)}</b> <span class="hint" dir="ltr" style="display:inline">${esc(x.email)}</span><div class="why">${esc(x.reason)}</div><div class="hint">${esc(fmtDate(x.createdAt))}</div><input type="text" id="nt${esc(x.id)}" maxlength="300" placeholder="ملاحظة للمستخدم (اختياري)"><div class="row" style="margin-top:8px"><button class="btn sm" type="button" data-dec="approve" data-id="${esc(x.id)}">موافقة (تعديل واحد)</button><button class="btn ghost sm" type="button" data-dec="reject" data-id="${esc(x.id)}">رفض</button></div></div>`;
+  const doneItem=x=>{const st=REQ_ST[x.status]||[x.status,""]; return `<div class="req"><b>${esc(x.name)}</b> <span class="chip ${st[1]}">${esc(st[0])}</span><div class="hint" style="margin-top:6px">${esc(fmtDate(x.decidedAt||x.createdAt))}${x.note?" — "+esc(x.note):""}</div>${x.status==="approved"?`<div class="row" style="margin-top:8px"><button class="btn ghost sm" type="button" data-dec="reject" data-id="${esc(x.id)}">سحب الموافقة</button></div>`:""}</div>`;};
+  const reqFig=fig("طلبات التعديل",pend.length?pend.length+" طلب بانتظار قرارك":"لا توجد طلبات معلّقة",`${pend.map(reqItem).join("")}<div class="amsg" id="reqM" role="status"></div>${done.length?`<h4 class="sub2">آخر القرارات</h4>${done.map(doneItem).join("")}`:""}`);
+  const admRow=a=>`<div class="req"><b>${esc(a.name)}</b> <span class="chip ${a.role==="owner"?"ok":""}">${a.role==="owner"?"المالك":"مسؤول"}</span><div class="hint" dir="ltr" style="margin-top:4px">${esc(a.email)}</div>${owner&&a.role!=="owner"?`<button class="btn ghost sm" type="button" data-rm="${esc(a.id)}">إزالة الصلاحية</button>`:""}</div>`;
+  const adminsFig=fig("المسؤولون",owner?"أضف مسؤولًا من المستخدمين المسجّلين":"قائمة المسؤولين",`${ADM.admins.map(admRow).join("")}${owner?`<div class="af"><label for="adE">بريد مستخدم مسجّل</label><input id="adE" type="email" dir="ltr" autocomplete="off" maxlength="120"></div><div class="amsg" id="adM" role="status"></div><button class="btn" id="adB" type="button">إضافة كمسؤول</button>`:""}`);
+  $("#adminBody").innerHTML=`<div class="grid2">`+reqFig+
    fig("حالة الاستمارة",stateText(s),`
     <div class="af"><label class="opt"><input type="radio" name="admState" value="open" ${s.state==="open"?"checked":""}><span>مفتوحة</span></label>
     <label class="opt"><input type="radio" name="admState" value="closed" ${s.state==="closed"?"checked":""}><span>مغلقة</span></label></div>
@@ -876,7 +891,7 @@ function renderAdmin(){
     <div class="af"><label for="rpE">بريد المستخدم</label><input id="rpE" type="email" dir="ltr" autocomplete="off" maxlength="120"></div>
     <div class="af"><label for="rpP">كلمة المرور الجديدة</label><input id="rpP" type="text" dir="ltr" autocomplete="off" maxlength="72"><p class="hint">8 أحرف على الأقل وتحتوي حرفًا ورقمًا.</p></div>
     <div class="amsg" id="rpM" role="status"></div>
-    <button class="btn" id="rpB" type="button">إعادة التعيين</button>`)+
+    <button class="btn" id="rpB" type="button">إعادة التعيين</button>`)+adminsFig+
    `</div>`;
   ADM.note="";
   $("#rpB").onclick=async()=>{
@@ -888,7 +903,7 @@ function renderAdmin(){
     b.disabled=false;
     if(r.status===401){renderLogin();return;}
     if(r.status===200&&r.j&&r.j.ok){$("#rpE").value="";$("#rpP").value="";m.classList.add("ok");m.textContent="تم تغيير كلمة المرور.";return;}
-    m.textContent=r.status===404?"لا يوجد حساب بهذا البريد.":"تعذر التنفيذ. حاول مرة أخرى.";
+    m.textContent=r.status===404?"لا يوجد حساب بهذا البريد.":r.status===403?"لا يمكن تغيير كلمة مرور حساب مسؤول من هنا.":"تعذر التنفيذ. حاول مرة أخرى.";
   };
   $("#admSave").onclick=async()=>{
     const st=($$("input[name=admState]").find(i=>i.checked)||{}).value;
@@ -899,10 +914,34 @@ function renderAdmin(){
     if(r.status===401){renderLogin();return;}
     m.textContent=r.j&&r.j.error==="bad_date"?"صيغة التاريخ غير صحيحة.":"تعذر الحفظ. حاول مرة أخرى.";
   };
+  $$("[data-dec]").forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.id, dec=b.dataset.dec, note=(($("#nt"+id)||{}).value||"").trim();
+    $$("[data-dec]").forEach(x=>x.disabled=true);
+    const r=await api("/api/admin",{action:"decide",id,decision:dec,note});
+    if(r.status===401){renderLogin();return;}
+    if(r.status===200&&r.j&&r.j.ok){ADM.requests=r.j.requests||[];renderAdmin();aMsg("reqM",dec==="approve"?"تمت الموافقة: للمستخدم تعديل واحد.":"تم تسجيل القرار.",true);return;}
+    if(r.status===409){await adminInit();aMsg("reqM","تم البتّ في هذا الطلب مسبقًا أو ألغاه صاحبه.");return;}
+    $$("[data-dec]").forEach(x=>x.disabled=false); aMsg("reqM","تعذر تنفيذ القرار. حاول مرة أخرى.");
+  });
+  const ab=$("#adB"); if(ab) ab.onclick=async()=>{
+    const e=$("#adE").value.trim(); aMsg("adM","");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){aMsg("adM","أدخل بريدًا صحيحًا.");return;}
+    ab.disabled=true; const r=await api("/api/admin",{action:"addadmin",email:e}); ab.disabled=false;
+    if(r.status===401){renderLogin();return;}
+    if(r.status===200&&r.j&&r.j.ok){ADM.admins=r.j.admins||[];renderAdmin();aMsg("adM","تمت الإضافة.",true);return;}
+    aMsg("adM",r.status===404?"لا يوجد حساب مسجّل بهذا البريد. اطلب منه إنشاء حساب أولًا.":r.status===403?"هذا الإجراء للمالك فقط.":"تعذر التنفيذ. حاول مرة أخرى.");
+  };
+  $$("[data-rm]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("إزالة صلاحية المسؤول من هذا الحساب؟")) return;
+    b.disabled=true; const r=await api("/api/admin",{action:"removeadmin",id:b.dataset.rm});
+    if(r.status===401){renderLogin();return;}
+    if(r.status===200&&r.j&&r.j.ok){ADM.admins=r.j.admins||[];renderAdmin();return;}
+    b.disabled=false; aMsg("adM","تعذر التنفيذ. حاول مرة أخرى.");
+  });
   $("#admRef").onclick=adminInit;
   $("#admCsv").onclick=()=>download("responses.csv","text/csv;charset=utf-8",csvOf(ADM.records));
   $("#admJson").onclick=()=>download("responses.json","application/json",JSON.stringify({questions:labelMap(),responses:ADM.records},null,2));
-  $("#admOut").onclick=async()=>{await api("/api/admin",{action:"logout"});ADMIN=false;$("#homeBody").innerHTML="";renderLogin();};
+  $("#admOut").onclick=async()=>{await api("/api/admin",{action:"logout"});ADMIN=false;ADM.me=null;$("#homeBody").innerHTML="";renderLogin();};
   renderDash();
 }
 
@@ -996,7 +1035,7 @@ addEventListener("hashchange",()=>{route();window.scrollTo(0,0);});
 
 
 /* ===== الحسابات: تسجيل وتحقق بالكود وصفحة المستخدم ===== */
-let USER=null, MYRESP=null, STATUS={open:true,message:""}, ME_READY=false, CFGERR=false, EDITING=false, curHash="", resendAt=0, rsTimer=0;
+let EDIT=null, IS_ADM_USER=false, USER=null, MYRESP=null, STATUS={open:true,message:""}, ME_READY=false, CFGERR=false, EDITING=false, curHash="", resendAt=0, rsTimer=0;
 let PEND="";
 try{PEND=sessionStorage.getItem("pendEmail")||"";}catch(e){}
 const setPend=e=>{PEND=e||"";try{e?sessionStorage.setItem("pendEmail",e):sessionStorage.removeItem("pendEmail");}catch(x){}};
@@ -1007,8 +1046,8 @@ const aMsg=(id,t,ok)=>{const m=$("#"+id); if(!m) return; m.textContent=t||""; m.
 async function loadMe(){
   const r=await api("/api/auth");
   CFGERR=r.status===503;
-  if(r.status===200&&r.j){USER=r.j.user||null; MYRESP=r.j.response||null; STATUS=r.j.status||STATUS;}
-  else {USER=null; MYRESP=null;}
+  if(r.status===200&&r.j){USER=r.j.user||null; MYRESP=r.j.response||null; STATUS=r.j.status||STATUS; EDIT=r.j.edit||null; IS_ADM_USER=!!r.j.admin;}
+  else {USER=null; MYRESP=null; EDIT=null; IS_ADM_USER=false;}
   ME_READY=true; renderChrome();
 }
 function renderChrome(){
@@ -1031,8 +1070,10 @@ function routeApp(){
   if(h==="admin") page="admin";
   else if(!ME_READY) page="boot";
   else if(!USER) page="auth";
-  else if(h==="form"||h==="edit") page="form";
+  // a submitted response is locked: the form opens again only while an approved edit request is waiting
+  else if(h==="form"||h==="edit") page=(MYRESP&&!(EDIT&&EDIT.state==="approved"))?"account":"form";
   else page="account";
+  if((h==="form"||h==="edit")&&page==="account") try{history.replaceState(null,"","#account");}catch(e){}
   $$("[data-page]").forEach(m=>m.hidden=m.dataset.page!==page);
   if(page==="admin"&&lastPage!=="admin") adminInit();
   if(page==="auth") renderAuth(h);
@@ -1080,7 +1121,8 @@ const REASON={
   password:"كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي حرفًا ورقمًا.", email_exists:"هذا البريد مسجّل بالفعل. سجّل الدخول.",
   nid_exists:"هذا الرقم القومي مسجّل بحساب آخر.", rate:"عدد المحاولات كبير. حاول بعد قليل.", mail_rate:"تعذر إرسال الرمز الآن بسبب كثرة الطلبات. حاول بعد قليل.",
   mail:"تعذر إرسال الرمز إلى بريدك الآن. تأكد من البريد وحاول بعد قليل.", wait:"انتظر دقيقة قبل طلب رمز جديد.", code:"الرمز غير صحيح أو انتهت صلاحيته.", credentials:"البريد أو كلمة المرور غير صحيحة.",
-  locked:"تم إيقاف المحاولات مؤقتًا. حاول بعد قليل.", current:"كلمة المرور الحالية غير صحيحة.", unconfirmed:"هذا الحساب لم يكتمل تفعيله. أنشئ الحساب من جديد بنفس البريد.", config:"الخدمة غير مهيّأة بعد. تواصل مع مسؤول الموقع."
+  locked:"تم إيقاف المحاولات مؤقتًا. حاول بعد قليل.", current:"كلمة المرور الحالية غير صحيحة.", unconfirmed:"هذا الحساب لم يكتمل تفعيله. أنشئ الحساب من جديد بنفس البريد.", config:"الخدمة غير مهيّأة بعد. تواصل مع مسؤول الموقع.",
+  reason:"اكتب سبب طلب التعديل (5 أحرف على الأقل).", already_open:"لديك طلب تعديل قائم بالفعل.", no_response:"أرسل الاستمارة أولًا قبل طلب التعديل.", closed:"الاستمارة مغلقة حاليًّا.", edit_not_approved:"لا يمكن تعديل الاستمارة إلا بعد موافقة المسؤول على طلب تعديل."
 };
 const reasonText=r=>REASON[r&&r.j&&r.j.reason]||(r.status===0?"تعذر الاتصال بالخادم.":"تعذر تنفيذ الطلب. حاول مرة أخرى.");
 function bindPw(root){$$(".pwt",root).forEach(b=>b.onclick=()=>{const i=$("#"+b.dataset.for); i.type=i.type==="password"?"text":"password"; b.textContent=i.type==="password"?"إظهار":"إخفاء";});}
@@ -1143,6 +1185,23 @@ function ansHtml(a){
   });
   return rows.length?rows.join(""):'<p class="hint">لا توجد إجابات.</p>';
 }
+function editBlock(closed){
+  const ed=EDIT||{state:"none"};
+  if(closed) return `<div class="asec">${esc(STATUS.message||"الاستمارة مغلقة حاليًّا.")} لا يمكن تعديل الإجابات الآن.</div>`;
+  if(ed.state==="approved") return `<div class="rline"><span class="chip ok">تمت الموافقة على طلب التعديل</span></div>
+    <div class="asec">لديك تعديل واحد على استمارتك. بعد حفظه تُقفل الاستمارة من جديد، ولأي تعديل آخر ترسل طلبًا جديدًا.${ed.request&&ed.request.note?`<br><b>ملاحظة المسؤول:</b> ${esc(ed.request.note)}`:""}</div>
+    <div class="row" style="justify-content:flex-start;margin-top:14px"><a class="btn" href="#form">تعديل إجاباتي</a></div>`;
+  if(ed.state==="pending") return `<div class="rline"><span class="chip wait">طلب التعديل قيد المراجعة</span><span>أُرسل في ${esc(fmtDate(ed.request.createdAt))}</span></div>
+    <p class="hint" style="margin-top:10px">سبب الطلب: ${esc(ed.request.reason)}</p>
+    <div class="amsg" id="edM" role="status"></div>
+    <div class="row" style="justify-content:flex-start"><button class="btn ghost" id="edCancel" type="button">إلغاء الطلب</button></div>`;
+  const l=ed.last;
+  return `${l&&l.status==="rejected"?`<div class="asec">رُفض طلبك السابق.${l.note?` <b>ملاحظة المسؤول:</b> ${esc(l.note)}`:""}</div>`:""}
+    <p class="hint" style="margin-top:12px">إجاباتك مُرسلة ومقفلة. لتعديلها أرسل طلبًا للمسؤول؛ إذا وافق يمكنك تعديل الاستمارة مرة واحدة.</p>
+    <div class="af"><label for="edWhy">سبب طلب التعديل</label><textarea id="edWhy" maxlength="500"></textarea></div>
+    <div class="amsg" id="edM" role="status"></div>
+    <div class="row" style="justify-content:flex-start"><button class="btn" id="edSend" type="button">إرسال طلب التعديل</button></div>`;
+}
 function renderAccount(){
   if(!USER) return;
   $("#accHello").textContent="أهلاً، "+USER.first;
@@ -1151,12 +1210,9 @@ function renderAccount(){
   const hist=(MYRESP&&MYRESP.history)||[];
   const resp=MYRESP?`
     <div class="rline"><span class="chip ok">تم الإرسال</span><span>آخر تحديث: ${esc(fmtDate(MYRESP.ts))}</span></div>
-    ${closed?`<div class="asec">${esc(STATUS.message||"الاستمارة مغلقة حاليًّا.")} لا يمكن تعديل الإجابات الآن.</div>`:""}
-    <div class="row" style="justify-content:flex-start;margin-top:14px">
-      ${closed?"":'<a class="btn" href="#form">تعديل إجاباتي</a>'}
-      <button class="btn ghost" type="button" id="viewA">عرض إجاباتي</button>
-    </div>
+    <div class="row" style="justify-content:flex-start;margin-top:14px"><button class="btn ghost" type="button" id="viewA">عرض إجاباتي</button></div>
     <div id="ansBox" class="ansbox" hidden>${ansHtml(MYRESP.a)}</div>
+    <h4 class="sub2">تعديل الإجابات</h4>${editBlock(closed)}
     ${hist.length?`<h4 class="sub2">النسخ السابقة (${hist.length})</h4><ul class="hist">${hist.map((h,i)=>`<li><span>${esc(fmtDate(h.ts))}</span><button type="button" class="pwt" data-h="${i}" style="position:static;transform:none">عرض</button><div class="ansbox" id="h${i}" hidden>${ansHtml(h.a||{})}</div></li>`).join("")}</ul>`:""}`
    :`<div class="rline"><span class="chip">لم تُرسل بعد</span><span>لم تقم بتعبئة الاستمارة حتى الآن.</span></div>
     ${closed?`<div class="asec">${esc(STATUS.message||"الاستمارة مغلقة حاليًّا.")}</div>`:'<div class="row" style="justify-content:flex-start;margin-top:14px"><a class="btn" href="#form">تعبئة الاستمارة</a></div>'}`;
@@ -1170,12 +1226,23 @@ function renderAccount(){
        <details class="dd"><summary>تغيير كلمة المرور</summary><div style="padding:12px">${pwField("pfC","كلمة المرور الحالية","current-password")}${pwField("pfP","كلمة المرور الجديدة","new-password")}</div></details>
        <div class="amsg" id="pfM" role="status" style="margin-top:12px"></div>
        <div class="row" style="justify-content:flex-start"><button class="btn" id="pfB" type="submit">حفظ التعديلات</button><button class="btn ghost" id="outB" type="button">تسجيل الخروج</button></div>
-      </form>`)}
+      </form>${IS_ADM_USER?'<p class="alt"><a href="#admin">لوحة الإدارة</a></p>':""}`)}
    </div>`;
   const v=$("#viewA"); if(v) v.onclick=()=>{const b=$("#ansBox"); b.hidden=!b.hidden; v.textContent=b.hidden?"عرض إجاباتي":"إخفاء الإجابات";};
   $$("[data-h]").forEach(b=>b.onclick=()=>{const d=$("#h"+b.dataset.h); d.hidden=!d.hidden; b.textContent=d.hidden?"عرض":"إخفاء";});
   bindPw($("#accBody"));
   $("#outB").onclick=doLogout;
+  const es=$("#edSend"); if(es) es.onclick=async()=>{
+    const why=$("#edWhy").value.trim(); aMsg("edM","");
+    if(why.length<5){aMsg("edM",REASON.reason);return;}
+    es.disabled=true; const r=await api("/api/auth",{action:"request_edit",reason:why}); es.disabled=false;
+    if(r.status===200&&r.j&&r.j.ok){await loadMe(); renderAccount(); return;}
+    if(r.status===401){USER=null; routeApp(); return;}
+    const msg=reasonText(r);
+    if(r.status===409||(r.j&&r.j.reason==="closed")){await loadMe(); renderAccount();}
+    aMsg("edM",msg);
+  };
+  const ec=$("#edCancel"); if(ec) ec.onclick=async()=>{ec.disabled=true; await api("/api/auth",{action:"cancel_edit"}); await loadMe(); renderAccount();};
   $("#pfF").onsubmit=busy($("#pfB"),async()=>{
     aMsg("pfM","");
     const body={action:"profile"}, name=$("#pfN").value.trim().replace(/\s+/g," ");

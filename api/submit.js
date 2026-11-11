@@ -1,4 +1,5 @@
-// Saves (or updates) the signed-in user's response in Supabase.
+// Saves the signed-in user's response in Supabase.
+// First submission: free. Any later edit needs an approved edit request, and each approval is consumed by one save.
 const crypto = require("crypto");
 const L = require("./_lib.js");
 const S = require("./_sb.js");
@@ -66,10 +67,22 @@ module.exports = async (req, res) => {
     const now = new Date().toISOString();
 
     if (prev) {
+      // Claim the approval first (pending -> approved -> used). The conditional PATCH is atomic, so two
+      // parallel saves cannot both use the same approval. If nothing was approved, the edit is refused.
+      const claim = await S.db("edit_requests?user_id=eq." + encodeURIComponent(uid) + "&status=eq.approved&select=id", {
+        method: "PATCH", headers: { Prefer: "return=representation" }, body: { status: "used", used_at: now }
+      });
+      if (!claim.ok) return L.send(res, 502, { ok: false, reason: "db" });
+      if (!Array.isArray(claim.j) || !claim.j.length) return L.send(res, 403, { ok: false, reason: "edit_not_approved" });
+      const claimId = claim.j[0].id;
       let history = Array.isArray(prev.history) ? prev.history : [];
       if (JSON.stringify(prev.answers) !== JSON.stringify(stored)) history = [{ ts: prev.updated_at, a: prev.answers }, ...history].slice(0, 10);
       const u = await S.db("responses?id=eq." + rid, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { answers: stored, history, updated_at: now } });
-      if (!u.ok) return L.send(res, 502, { ok: false, reason: "db" });
+      if (!u.ok) {
+        // the save failed: give the approval back so the user does not lose their edit
+        await S.db("edit_requests?id=eq." + encodeURIComponent(claimId), { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { status: "approved", used_at: null } });
+        return L.send(res, 502, { ok: false, reason: "db" });
+      }
     } else {
       const u = await S.db("responses", { method: "POST", headers: { Prefer: "return=minimal" }, body: { id: rid, user_id: uid, answers: stored, history: [], created_at: now, updated_at: now } });
       if (!u.ok) return L.send(res, 502, { ok: false, reason: "db" });
