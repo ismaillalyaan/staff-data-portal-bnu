@@ -47,7 +47,7 @@ async function seed(count) {
     if (!p.ok) { await S.admin("/users/" + enc(u.j.id), { method: "DELETE" }); console.error("FAILED  " + email + " profile (" + p.status + ")"); continue; }
     if (i === 1) { // one account already has a submitted response, the rest are empty
       const now = new Date().toISOString();
-      const a = { 1: name, 7: "كلية علوم الحاسب", 21: "معيد", 23: "تعيين", 27: "12", 35: "لا", 48: "لا", 68: "نعم" };
+      const a = { 1: name, 7: "كلية علوم الحاسب", 21: "معيد", 23: "تعاقد كلي", 27: "12", 35: "لا", 48: "لا", 68: "نعم" };
       const rr = await S.db("responses", { method: "POST", headers: { Prefer: "return=minimal" }, body: { id: crypto.randomUUID(), user_id: u.j.id, answers: a, history: [], created_at: now, updated_at: now } });
       if (!rr.ok) console.error("  (sample response failed: " + rr.status + ")");
     }
