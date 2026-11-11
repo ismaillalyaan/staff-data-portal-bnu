@@ -88,6 +88,7 @@ module.exports = async (req, res) => {
       if (!u.ok) return L.send(res, 502, { ok: false, reason: "db" });
     }
 
+    await L.logEvent(req, { uid, action: prev ? "form_edit" : "form_submit", detail: { fields: known } });
     return L.send(res, 200, { ok: true, updated: !!prev, ts: now });
   } catch (e) {
     console.error("submit failed:", e && e.message);

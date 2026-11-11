@@ -74,6 +74,22 @@ create table if not exists public.edit_requests (
 create unique index if not exists edit_requests_one_open_per_user on public.edit_requests (user_id) where status in ('pending','approved');
 create index if not exists edit_requests_status_created on public.edit_requests (status, created_at desc);
 
+-- Activity log: who did what and when (sign-ups, sign-ins, form submissions, edit requests, admin actions).
+-- Written by the server only; shown to the owner in the admin panel (Activity log). Never stores passwords or answers.
+create table if not exists public.activity_logs (
+  id           bigint generated always as identity primary key,
+  created_at   timestamptz not null default now(),
+  actor_id     uuid,
+  actor_email  text,
+  action       text not null,
+  target_id    uuid,
+  target_email text,
+  detail       jsonb not null default '{}',
+  ip           text
+);
+create index if not exists activity_logs_created on public.activity_logs (created_at desc);
+alter table public.activity_logs enable row level security;
+
 -- Row Level Security on with no policies: the public (anon) key can read or write nothing.
 -- Only the server, using the service role key, touches these tables.
 alter table public.profiles    enable row level security;

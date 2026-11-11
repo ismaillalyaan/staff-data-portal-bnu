@@ -86,11 +86,13 @@ async function requestEdit(req, res, b, uid) {
   if (open.j[0]) return L.send(res, 409, { ok: false, reason: "already_open" });
   const ins = await S.db("edit_requests", { method: "POST", headers: { Prefer: "return=minimal" }, body: { user_id: uid, reason } });
   if (!ins.ok) return L.send(res, ins.status === 409 ? 409 : 502, { ok: false, reason: ins.status === 409 ? "already_open" : "db" }); // 409 = the unique index caught a double click
+  await L.logEvent(req, { uid, action: "edit_request", detail: { reason: reason.slice(0, 200) } });
   return L.send(res, 200, { ok: true });
 }
 async function cancelEdit(req, res, uid) {
   const d = await S.db("edit_requests?user_id=eq." + enc(uid) + "&status=eq.pending", { method: "DELETE", headers: { Prefer: "return=minimal" } });
   if (!d.ok) return L.send(res, 502, { ok: false, reason: "db" });
+  await L.logEvent(req, { uid, action: "edit_cancel" });
   return L.send(res, 200, { ok: true });
 }
 
@@ -131,6 +133,7 @@ async function signup(req, res, b, ip) {
     await S.admin("/users/" + enc(id), { method: "DELETE" });
     return L.send(res, ins.status === 409 ? 409 : 502, { ok: false, reason: ins.status === 409 ? "nid_exists" : "db" });
   }
+  await L.logEvent(req, { uid: id, email, action: "signup" });
   return startSession(res, id, { ok: true }); // no email code: sign the new user straight in
 }
 
@@ -144,12 +147,14 @@ async function signin(req, res, b, ip) {
   if (r.ok && r.j && r.j.user && r.j.user.id) {
     fails.delete(email);
     if (!(await profileById(r.j.user.id))) return L.send(res, 401, { ok: false, reason: "credentials" });
+    await L.logEvent(req, { uid: r.j.user.id, email, action: "login" });
     return startSession(res, r.j.user.id, { ok: true });
   }
   if (/email_not_confirmed|not confirmed/i.test(S.errCode(r) + JSON.stringify(r.j || ""))) {
     // Left over from when verification was on: sign-up drops unconfirmed accounts, so ask them to register again.
     return L.send(res, 403, { ok: false, reason: "unconfirmed" });
   }
+  await L.logEvent(req, { email, action: "login_failed" });
   f.n++; if (f.n >= 5) { f.until = Date.now() + 15 * 60000; f.n = 0; }
   fails.set(email, f);
   return L.send(res, 401, { ok: false, reason: "credentials" });
@@ -173,6 +178,7 @@ async function updateProfile(req, res, b, uid) {
     const u = await S.admin("/users/" + enc(uid), { method: "PUT", body: { password: b.newPassword } });
     if (!u.ok) return L.send(res, 502, { ok: false, reason: "auth" });
   }
+  await L.logEvent(req, { uid, email: p.email, action: "profile_update", detail: { name: b.name !== undefined, password: !!b.newPassword } });
   return L.send(res, 200, { ok: true, user: pub(p) });
 }
 
@@ -190,7 +196,17 @@ module.exports = async (req, res) => {
     switch (b.action) {
       case "signup": return await signup(req, res, b, ip);
       case "login": return await signin(req, res, b, ip);
-      case "logout": return L.send(res, 200, { ok: true }, { "Set-Cookie": [L.clearUserCookie(), L.clearCookie()] });
+      case "logout": {
+        const uid = L.userId(req);
+        if (uid) await L.logEvent(req, { uid, action: "logout" });
+        return L.send(res, 200, { ok: true }, { "Set-Cookie": [L.clearUserCookie(), L.clearCookie()] });
+      }
+      case "form_ack": { // the user closed the "you can submit only once" notice
+        const uid = L.userId(req);
+        if (!uid) return L.send(res, 401, { ok: false });
+        await L.logEvent(req, { uid, action: "form_ack", detail: { mode: b.mode === "edit" ? "edit" : "first" } });
+        return L.send(res, 200, { ok: true });
+      }
       case "profile": {
         const uid = L.userId(req);
         if (!uid) return L.send(res, 401, { ok: false });

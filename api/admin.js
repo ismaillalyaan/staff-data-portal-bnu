@@ -139,13 +139,22 @@ module.exports = async (req, res) => {
       if (S.validEmail(email) && password) {
         const r = await S.auth("/token?grant_type=password", { email, password });
         const uid = r.ok && r.j && r.j.user && r.j.user.id;
-        if (uid && await L.isAdminUser(uid)) return L.send(res, 200, { ok: true }, { "Set-Cookie": L.makeCookie(uid, SESSION_SEC) });
+        if (uid && await L.isAdminUser(uid)) {
+          await L.logEvent(req, { uid, email, action: "admin_login" });
+          return L.send(res, 200, { ok: true }, { "Set-Cookie": L.makeCookie(uid, SESSION_SEC) });
+        }
       }
       // same answer for "unknown email", "wrong password" and "not an admin"
-      failed("ip:" + ip); if (email) failed("em:" + email); await wait(600);
+      failed("ip:" + ip); if (email) failed("em:" + email);
+      await L.logEvent(req, { email, action: "admin_login_failed" });
+      await wait(600);
       return L.send(res, 401, { ok: false });
     }
-    if (b.action === "logout") return L.send(res, 200, { ok: true }, { "Set-Cookie": L.clearCookie() });
+    if (b.action === "logout") {
+      const uid = L.adminCookieUid(req);
+      if (uid) await L.logEvent(req, { uid, action: "admin_logout" });
+      return L.send(res, 200, { ok: true }, { "Set-Cookie": L.clearCookie() });
+    }
 
     const me = await L.adminOf(req);
     if (!me) return L.send(res, 401, { ok: false });
@@ -163,6 +172,7 @@ module.exports = async (req, res) => {
       const message = L.cleanText(b.message, 500) || L.DEFAULT_MESSAGE;
       const s = { state, closeAt, message };
       await L.writeSettings(s);
+      await L.logEvent(req, { uid: me.uid, action: "settings_update", detail: { state, closeAt: closeAt || "", message: message.slice(0, 120) } });
       return L.send(res, 200, { ok: true, settings: view(s) });
     }
 
@@ -184,12 +194,13 @@ module.exports = async (req, res) => {
       }
       // approve only works on a pending request; reject also revokes an approval that was not used yet
       const from = approve ? "eq.pending" : "in.(pending,approved)";
-      const u = await S.db("edit_requests?id=eq." + enc(id) + "&status=" + from + "&select=id", {
+      const u = await S.db("edit_requests?id=eq." + enc(id) + "&status=" + from + "&select=id,user_id", {
         method: "PATCH", headers: { Prefer: "return=representation" },
         body: { status: approve ? "approved" : "rejected", admin_note: note, decided_at: new Date().toISOString(), decided_by: me.uid }
       });
       if (!u.ok) return L.send(res, 502, { ok: false });
       if (!Array.isArray(u.j) || !u.j.length) return L.send(res, 409, { ok: false, error: "not_pending" });
+      await L.logEvent(req, { uid: me.uid, action: "edit_decide", target: u.j[0].user_id, detail: { decision: approve ? "approve" : "reject", note } });
       return L.send(res, 200, { ok: true, requests: await listRequests(me) });
     }
 
@@ -211,6 +222,7 @@ module.exports = async (req, res) => {
         body: { user_id: p.j[0].id, role: "admin", permissions: grant.permissions, colleges: grant.colleges }
       });
       if (!ins.ok) return L.send(res, 502, { ok: false });
+      await L.logEvent(req, { uid: me.uid, action: "admin_add", target: p.j[0].id, targetEmail: email, detail: { permissions: grant.permissions, colleges: grant.colleges } });
       return L.send(res, 200, { ok: true, admins: await listAdmins() });
     }
     if (b.action === "updateadmin") {
@@ -226,6 +238,7 @@ module.exports = async (req, res) => {
       });
       if (!u.ok) return L.send(res, 502, { ok: false });
       if (!Array.isArray(u.j) || !u.j.length) return L.send(res, 404, { ok: false, error: "not_found" });
+      await L.logEvent(req, { uid: me.uid, action: "admin_update", target: id, detail: { permissions: grant.permissions, colleges: grant.colleges } });
       return L.send(res, 200, { ok: true, admins: await listAdmins() });
     }
     if (b.action === "removeadmin") {
@@ -235,6 +248,7 @@ module.exports = async (req, res) => {
       if (id === me.uid) return L.send(res, 400, { ok: false, error: "self" });
       const d = await S.db("admins?user_id=eq." + enc(id) + "&role=eq.admin", { method: "DELETE", headers: { Prefer: "return=minimal" } }); // never the owner
       if (!d.ok) return L.send(res, 502, { ok: false });
+      await L.logEvent(req, { uid: me.uid, action: "admin_remove", target: id });
       return L.send(res, 200, { ok: true, admins: await listAdmins() });
     }
 
@@ -259,7 +273,34 @@ module.exports = async (req, res) => {
       if (t.j[0] && target !== me.uid && !(owner && t.j[0].role !== "owner")) return L.send(res, 403, { ok: false, error: "protected" });
       const u = await S.admin("/users/" + enc(target), { method: "PUT", body: { password: b.password } });
       if (!u.ok) return L.send(res, 502, { ok: false });
+      await L.logEvent(req, { uid: me.uid, action: "password_reset", target, targetEmail: email });
       return L.send(res, 200, { ok: true });
+    }
+
+    /* ---- activity log (owner only): newest first, optional category and e-mail search, paged by id ---- */
+    if (b.action === "logs") {
+      if (!owner) return L.send(res, 403, { ok: false, error: "forbidden" });
+      const cats = {
+        accounts: ["signup", "login", "login_failed", "logout", "profile_update"],
+        form: ["form_ack", "form_submit", "form_edit"],
+        requests: ["edit_request", "edit_cancel", "edit_decide"],
+        admin: ["admin_login", "admin_login_failed", "admin_logout", "settings_update", "admin_add", "admin_update", "admin_remove", "password_reset"]
+      };
+      const PAGE = 100;
+      let path = "activity_logs?select=id,created_at,actor_id,actor_email,action,target_id,target_email,detail,ip&order=id.desc&limit=" + (PAGE + 1);
+      if (cats[b.category]) path += "&action=in.(" + cats[b.category].join(",") + ")";
+      const q = String(b.q || "").replace(/[^\p{L}\p{N}@._+-]/gu, "").slice(0, 60);
+      if (q) path += "&or=(actor_email.ilike.*" + enc(q) + "*,target_email.ilike.*" + enc(q) + "*)";
+      if (/^\d{1,15}$/.test(String(b.before || ""))) path += "&id=lt." + b.before;
+      const r = await S.db(path);
+      if (!r.ok) return L.send(res, 200, { ok: false, error: "no_table" }); // usually: supabase.sql was not run again
+      const more = r.j.length > PAGE, rows = r.j.slice(0, PAGE);
+      const people = await peopleById(rows.flatMap(x => [x.actor_id, x.target_id]).filter(Boolean));
+      const nm = (id, email) => ({ name: (people[id] || {}).full_name || "", email: (people[id] || {}).email || email || "" });
+      return L.send(res, 200, {
+        ok: true, more,
+        logs: rows.map(x => ({ id: x.id, at: x.created_at, action: x.action, actor: nm(x.actor_id, x.actor_email), target: x.target_id || x.target_email ? nm(x.target_id, x.target_email) : null, detail: x.detail || {}, ip: x.ip || "" }))
+      });
     }
     return L.send(res, 400, { ok: false });
   } catch (e) {

@@ -327,6 +327,24 @@ details.dd[open] summary{border-color:var(--accent)}
 .adm-rq .why{margin:6px 0 8px;white-space:pre-wrap}
 .adm-rq input[type=text]{width:100%;margin-top:10px}
 .adm-rq .hint{margin:0}
+.modal{position:fixed;inset:0;z-index:100;background:rgba(7,51,69,.58);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.modal-card{background:#fff;border-radius:6px;max-width:580px;width:100%;padding:26px 28px 24px;border-top:6px solid var(--orange);box-shadow:0 14px 44px rgba(0,0,0,.35)}
+.modal-card h2{margin:0 0 12px;font-family:var(--display);font-size:1.5rem;color:var(--navy);line-height:1.4;display:flex;align-items:center;gap:10px}
+.modal-card h2 .mi{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--orange);color:#fff;font-weight:800}
+.modal-card ul{margin:0 0 16px;padding:0 20px 0 0;line-height:1.9}
+.modal-card li{margin-bottom:6px}
+.modal-card li.em{font-weight:700;color:var(--navy)}
+.modal-ck{display:flex;align-items:flex-start;gap:10px;margin:0 0 18px;padding:12px 14px;background:var(--warn-bg);border:1px solid #f1d9a6;border-radius:var(--r);cursor:pointer;font-weight:700}
+.modal-ck input{margin-top:6px;flex:none;width:18px;height:18px}
+.modal-act{display:flex;gap:10px;flex-wrap:wrap}
+.modal-act .btn[disabled]{opacity:.45;cursor:not-allowed}
+.adm-lf{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
+.adm-lf select,.adm-lf input{font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r);background:#fff;min-width:0}
+.adm-lf input{flex:1;min-width:180px}
+.adm-lg td{font-size:.88rem}
+.adm-lg .ip{direction:ltr;text-align:right;color:var(--muted);font-size:.8rem;white-space:nowrap}
+.adm-lg .nt{max-width:340px;overflow-wrap:anywhere;color:var(--ink)}
+.adm-lg .tm{white-space:nowrap;color:var(--muted)}
 .adm-tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:#fff;margin-bottom:22px}
 .adm-tbl{width:100%;border-collapse:collapse;font-size:.92rem}
 .adm-tbl th{text-align:right;font-weight:700;font-size:.82rem;color:var(--muted);padding:11px 16px;border-bottom:1px solid var(--line);background:#fafbfb;white-space:nowrap}
@@ -427,6 +445,14 @@ details.dd[open] summary{border-color:var(--accent)}
   <div id="homeBody" hidden></div>
 </main>
 
+<div class="modal" id="onceModal" role="dialog" aria-modal="true" aria-labelledby="onceT" hidden>
+  <div class="modal-card">
+    <h2 id="onceT"><span class="mi" aria-hidden="true">!</span><span id="onceTt"></span></h2>
+    <ul id="onceL"></ul>
+    <label class="modal-ck" for="onceCk"><input type="checkbox" id="onceCk"><span>قرأت التنبيه وأفهم ما جاء فيه.</span></label>
+    <div class="modal-act"><button type="button" class="btn" id="onceGo" disabled>متابعة إلى الاستمارة</button><button type="button" class="btn ghost" id="onceBack">رجوع</button></div>
+  </div>
+</div>
 <div class="container"><footer class="foot">تُحفظ إجاباتك لدى الجهة المسؤولة عن الاستمارة وتُستخدم لأغراض التخطيط والتطوير فقط.</footer></div>
 <div id="site-footer"><!-- IT: place the organization footer here --></div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
@@ -992,7 +1018,8 @@ const IC={
   mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
   eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff:'<path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0112 5c6 0 10 7 10 7a17 17 0 01-3.2 3.9M6.6 6.7C3.8 8.5 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 004.2 4.2"/>',
-  warn:'<path d="M12 3l10 18H2zM12 10v5M12 18v.01"/>'
+  warn:'<path d="M12 3l10 18H2zM12 10v5M12 18v.01"/>',
+  log:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>'
 };
 const ico=n=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||""}</svg>`;
 
@@ -1063,7 +1090,8 @@ const ADM_SECS=[
   {k:"form",t:"حالة الاستمارة",i:"toggle",d:"فتح الاستمارة وإغلاقها وموعد الإغلاق",ok:()=>has("settings"),v:()=>secForm()},
   {k:"export",t:"تصدير البيانات",i:"download",d:"تنزيل الاستجابات بصيغة CSV أو JSON",ok:()=>has("data"),v:()=>secExport()},
   {k:"passwords",t:"كلمات المرور",i:"key",d:"إعادة تعيين كلمة مرور مستخدم",ok:()=>has("passwords"),v:()=>secPasswords()},
-  {k:"admins",t:"المسؤولون والصلاحيات",i:"users",d:"إضافة مسؤولين وتحديد صلاحياتهم وكلياتهم",ok:isOwner,v:()=>secAdmins()}
+  {k:"admins",t:"المسؤولون والصلاحيات",i:"users",d:"إضافة مسؤولين وتحديد صلاحياتهم وكلياتهم",ok:isOwner,v:()=>secAdmins()},
+  {k:"logs",t:"سجل النشاط",i:"log",d:"كل ما يحدث في الموقع: الحسابات والاستمارات والطلبات وإجراءات الإدارة",ok:isOwner,v:()=>secLogs()}
 ];
 const admSecKey=()=>{const k=(location.hash||"").replace(/^#\/?admin\/?/,"").split("?")[0]; const s=ADM_SECS.find(x=>x.k===k&&x.ok()); return s?s.k:"home";};
 const admFlash=(id,t,ok)=>{ADM.flash=[id,t,!!ok];};
@@ -1218,6 +1246,61 @@ function readGrantForm(p){
   if(!permissions.length) return "اختر صلاحية واحدة على الأقل.";
   if(!all&&!colleges.length) return "اختر كلية واحدة على الأقل أو اجعل النطاق «كل الكليات».";
   return {permissions,allColleges:all,colleges:all?[]:colleges};
+}
+/* --- سجل النشاط (للمالك فقط) --- */
+const LOG={rows:[],more:false,cat:"",q:"",busy:false,err:""};
+const LOG_CATS=[["","كل الأنشطة"],["accounts","الحسابات"],["form","الاستمارة"],["requests","طلبات التعديل"],["admin","الإدارة"]];
+const LOG_L={signup:["أنشأ حسابًا","ok"],login:["سجّل الدخول",""],login_failed:["محاولة دخول فاشلة","no"],logout:["سجّل الخروج",""],profile_update:["عدّل بيانات حسابه",""],
+  form_ack:["اطّلع على تنبيه الإرسال لمرة واحدة",""],form_submit:["أرسل الاستمارة","ok"],form_edit:["عدّل استمارته المرسلة","ok"],
+  edit_request:["أرسل طلب تعديل","wait"],edit_cancel:["ألغى طلب التعديل",""],edit_decide:["قرّر في طلب تعديل",""],
+  admin_login:["دخل لوحة الإدارة",""],admin_login_failed:["محاولة دخول فاشلة للوحة الإدارة","no"],admin_logout:["خرج من لوحة الإدارة",""],
+  settings_update:["غيّر حالة الاستمارة",""],admin_add:["أضاف مسؤولًا","ok"],admin_update:["عدّل صلاحيات مسؤول",""],admin_remove:["أزال مسؤولًا","no"],password_reset:["أعاد تعيين كلمة مرور مستخدم",""]};
+const logWhen=t=>{try{return new Date(t).toLocaleString("ar-EG",{dateStyle:"medium",timeStyle:"medium",timeZone:"Africa/Cairo"});}catch(e){return String(t||"");}};
+const logWho=p=>p&&(p.name||p.email)?`<div class="who"><b>${esc(p.name||p.email)}</b>${p.name&&p.email?`<small>${esc(p.email)}</small>`:""}</div>`:"—";
+function logNote(x){
+  const d=x.detail||{};
+  switch(x.action){
+    case "edit_decide": return (d.decision==="approve"?"موافقة":"رفض")+(d.note?" — "+d.note:"");
+    case "edit_request": return d.reason||"";
+    case "settings_update": return (d.state==="open"?"مفتوحة":"مغلقة")+(d.closeAt?" · إغلاق تلقائي: "+logWhen(d.closeAt):"")+(d.message?" · "+d.message:"");
+    case "admin_add": case "admin_update": return ((d.permissions||[]).map(k=>(PERM_L[k]||[k])[0]).join("، ")||"بلا صلاحيات")+" · "+(Array.isArray(d.colleges)?d.colleges.map(CSHORT).join("، "):"كل الكليات");
+    case "profile_update": return [d.name&&"الاسم",d.password&&"كلمة المرور"].filter(Boolean).join("، ");
+    case "form_ack": return d.mode==="edit"?"تعديل واحد مسموح":"إرسال أول";
+    case "form_submit": case "form_edit": return d.fields?d.fields+" إجابة":"";
+    default: return "";
+  }
+}
+async function loadLogs(reset){
+  if(LOG.busy) return;
+  LOG.busy=true; LOG.err=""; if(reset){LOG.rows=[];LOG.more=false;} drawLogs();
+  const before=reset||!LOG.rows.length?"":LOG.rows[LOG.rows.length-1].id;
+  const r=await post({action:"logs",category:LOG.cat,q:LOG.q,before}); LOG.busy=false;
+  if(!r) return;
+  if(okRes(r)){LOG.rows=LOG.rows.concat(r.j.logs||[]); LOG.more=!!r.j.more;}
+  else LOG.err=r.status===200&&r.j&&r.j.error==="no_table"?"no_table":"fail";
+  if(ADM.sec==="logs") drawLogs();
+}
+function drawLogs(){
+  const b=$("#logBody"); if(!b) return;
+  if(LOG.err==="no_table"){b.innerHTML='<div class="adm-note">سجل النشاط غير مفعّل بعد: شغّل ملف supabase.sql مرة أخرى في Supabase (SQL Editor) لإنشاء جدول activity_logs.</div>';return;}
+  if(LOG.err){b.innerHTML='<p class="amsg">تعذر تحميل السجل. حاول مرة أخرى.</p>';return;}
+  if(LOG.busy&&!LOG.rows.length){b.innerHTML='<p class="hint">جارٍ التحميل…</p>';return;}
+  if(!LOG.rows.length){b.innerHTML='<p class="adm-clear">لا توجد أنشطة مسجّلة بعد.</p>';return;}
+  const rows=LOG.rows.map(x=>{const l=LOG_L[x.action]||[x.action,""];
+    return `<tr><td class="tm">${esc(logWhen(x.at))}</td><td>${logWho(x.actor)}</td><td><span class="chip ${l[1]}">${esc(l[0])}</span></td><td>${logWho(x.target)}</td><td class="nt">${esc(logNote(x))}</td><td class="ip">${esc(x.ip)}</td></tr>`;}).join("");
+  b.innerHTML=`<div class="adm-tw"><table class="adm-tbl adm-lg"><thead><tr><th>الوقت</th><th>المنفّذ</th><th>النشاط</th><th>المعنيّ</th><th>تفاصيل</th><th>IP</th></tr></thead><tbody>${rows}</tbody></table></div>`+
+    (LOG.more?`<button type="button" class="btn ghost" id="logMore"${LOG.busy?" disabled":""}>عرض المزيد</button>`:"");
+  const m=$("#logMore"); if(m) m.onclick=()=>loadLogs(false);
+}
+function secLogs(){
+  $("#admSec").innerHTML=`<div class="adm-note">يسجّل الموقع كل ما يحدث: إنشاء الحسابات وتسجيل الدخول والخروج، وإرسال الاستمارات وتعديلها، وطلبات التعديل وقراراتها، وإجراءات المسؤولين. لا تُحفظ كلمات المرور ولا إجابات الاستمارة في السجل.</div>
+    <div class="adm-lf"><select id="logCat" aria-label="نوع النشاط">${LOG_CATS.map(c=>`<option value="${c[0]}"${c[0]===LOG.cat?" selected":""}>${c[1]}</option>`).join("")}</select>
+    <input id="logQ" type="search" dir="ltr" maxlength="60" placeholder="بحث بالبريد الإلكتروني" value="${esc(LOG.q)}">
+    <button type="button" class="btn" id="logGo">بحث</button><button type="button" class="btn ghost" id="logRef">تحديث</button></div><div id="logBody"></div>`;
+  const go=()=>{LOG.cat=$("#logCat").value; LOG.q=$("#logQ").value.trim(); loadLogs(true);};
+  $("#logCat").onchange=go; $("#logGo").onclick=go; $("#logRef").onclick=go;
+  $("#logQ").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();go();}};
+  loadLogs(true);
 }
 function secAdmins(){
   const perms=a=>a.role==="owner"?"جميع الصلاحيات":(a.permissions.length?a.permissions.map(k=>(PERM_L[k]||[k])[0]).join("، "):'<span class="chip wait">بلا صلاحيات</span>');
@@ -1396,6 +1479,7 @@ function routeApp(){
   else page="account";
   if((h==="form"||h==="edit")&&page==="account") try{history.replaceState(null,"","#account");}catch(e){}
   $$("[data-page]").forEach(m=>m.hidden=m.dataset.page!==page);
+  if(page!=="form") $("#onceModal").hidden=true;
   if(page==="admin"){ if(lastPage!=="admin") adminInit(); else if(ADMIN) renderAdmin(); }
   if(page==="auth") renderAuth(h);
   if(page==="account") renderAccount();
@@ -1423,6 +1507,31 @@ function fillForm(a){
     } else t.value=Array.isArray(v)?v.join("\n"):String(v);
   });
 }
+/* تنبيه قبل تعبئة الاستمارة: تُرسل مرة واحدة فقط */
+function askOnce(edit){
+  const m=$("#onceModal"), ck=$("#onceCk"), go=$("#onceGo");
+  $("#onceTt").textContent=edit?"لديك تعديل واحد فقط":"تنبيه مهم قبل أن تبدأ";
+  $("#onceL").innerHTML=(edit?[
+    ["وافق المسؤول على طلبك، ويحق لك الآن <b>تعديل واحد فقط</b> على استمارتك.",1],
+    ["بعد حفظ التعديلات تُقفل الاستمارة من جديد.",0],
+    ["لأي تعديل آخر ستحتاج إلى إرسال <b>طلب تعديل جديد</b> وانتظار موافقة المسؤول.",0],
+    ["راجع إجاباتك جيدًا قبل الضغط على «حفظ التعديلات».",0]
+  ]:[
+    ["الاستمارة <b>تُرسل مرة واحدة فقط</b>، وبعد الإرسال تُقفل ولا يمكنك تغيير إجاباتك بنفسك.",1],
+    ["راجع كل إجاباتك جيدًا قبل الضغط على «إرسال الاستمارة».",0],
+    ["إذا احتجت إلى تعديل أي شيء بعد الإرسال، فعليك إرسال <b>طلب تعديل</b> من صفحة حسابك مع ذكر السبب، وانتظار موافقة المسؤول.",0],
+    ["كل موافقة تسمح بتعديل واحد فقط، وبعده تُقفل الاستمارة من جديد.",0]
+  ]).map(x=>`<li${x[1]?' class="em"':""}>${x[0]}</li>`).join("");
+  ck.checked=false; go.disabled=true; m.hidden=false; ck.focus();
+  ck.onchange=()=>{go.disabled=!ck.checked;};
+  go.onclick=()=>{if(!ck.checked) return; m.hidden=true; api("/api/auth",{action:"form_ack",mode:edit?"edit":"first"}); window.scrollTo(0,0);};
+  $("#onceBack").onclick=()=>{m.hidden=true; go2("account");};
+  m.onkeydown=e=>{ // keep keyboard focus inside the dialog
+    if(e.key!=="Tab") return;
+    const f=[ck,go,$("#onceBack")].filter(x=>!x.disabled), i=f.indexOf(document.activeElement);
+    if(e.shiftKey&&i<=0){e.preventDefault();f[f.length-1].focus();} else if(!e.shiftKey&&i===f.length-1){e.preventDefault();f[0].focus();}
+  };
+}
 function enterForm(){
   form.hidden=false; $("#fnav").hidden=false; stepsEl.hidden=false; $(".bar").hidden=false; $("#done").hidden=true; $("#fmsg").textContent="";
   ALL.forEach(q=>form.querySelector(`.q[data-q="${q.key}"]`).classList.remove("bad"));
@@ -1431,7 +1540,7 @@ function enterForm(){
   maxStep=EDITING?SECTIONS.length-1:0; formOpened=EDITING?0:Date.now();
   refresh(); go(0);
   $("#send").textContent=EDITING?"حفظ التعديلات":"إرسال الاستمارة";
-  if(!STATUS.open) showClosed(STATUS.message); else {$("#formwrap").hidden=false; $("#closedBox").hidden=true;}
+  if(!STATUS.open) showClosed(STATUS.message); else {$("#formwrap").hidden=false; $("#closedBox").hidden=true; askOnce(EDITING);}
 }
 
 /* ---------- صفحات الدخول ---------- */

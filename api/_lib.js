@@ -171,6 +171,22 @@ async function isAdminUser(uid) {
   const r = await sb().db("admins?user_id=eq." + encodeURIComponent(uid) + "&select=role&limit=1");
   return r.ok && Array.isArray(r.j) && !!r.j[0] ? r.j[0].role : null;
 }
+// Activity log (public.activity_logs). Never throws and never blocks the request if the table is missing.
+// e: { uid, email, action, target, targetEmail, detail }. Do not put passwords or form answers in detail.
+async function logEvent(req, e) {
+  try {
+    const uuid = v => (/^[0-9a-f-]{36}$/i.test(String(v || "")) ? String(v) : null);
+    const r = await sb().db("activity_logs", {
+      method: "POST", headers: { Prefer: "return=minimal" },
+      body: {
+        actor_id: uuid(e.uid), actor_email: e.email ? String(e.email).slice(0, 120) : null, action: String(e.action).slice(0, 40),
+        target_id: uuid(e.target), target_email: e.targetEmail ? String(e.targetEmail).slice(0, 120) : null,
+        detail: e.detail && typeof e.detail === "object" ? e.detail : {}, ip: clientIp(req).slice(0, 64)
+      }
+    });
+    if (!r.ok) console.error("activity log not saved:", r.status);
+  } catch (err) { console.error("activity log failed:", err && err.message); }
+}
 function sameOrigin(req) {
   const o = req.headers.origin;
   if (!o) return false;
@@ -182,5 +198,5 @@ module.exports = {
   readRecords, readSettings, writeSettings, isOpen, publicStatus,
   cairoToISO, isoToCairo, makeCookie, clearCookie, adminOf, isAdminUser, sameOrigin, secretOk,
   PERMS, can, collegeOf, inScope,
-  makeUserCookie, clearUserCookie, userId, userSecretOk, adminCookieUid
+  makeUserCookie, clearUserCookie, userId, userSecretOk, adminCookieUid, logEvent
 };
