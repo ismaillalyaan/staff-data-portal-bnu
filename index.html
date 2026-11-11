@@ -228,6 +228,127 @@ details.dd[open] summary{border-color:var(--accent)}
   .band.lg{padding-block:36px 40px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+/* ===== admin console ===== */
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.spin{width:20px;height:20px;border:3px solid rgba(5,173,207,.25);border-top-color:var(--accent);border-radius:50%;animation:admsp .8s linear infinite;display:inline-block;flex:none}
+@keyframes admsp{to{transform:rotate(360deg)}}
+.adm-load{display:flex;flex-direction:column;align-items:center;gap:12px;padding:100px 0;color:var(--muted)}
+.chip.sc{background:#e6f3f8;color:#0a5f7a}
+
+/* sign-in */
+.lg{display:grid;grid-template-columns:1fr 1.05fr;min-height:calc(100vh - 100px)}
+.lg-main{display:flex;align-items:center;justify-content:center;padding:40px 24px;background:#f5f8fa}
+.lg-card{width:100%;max-width:420px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(7,51,69,.10);padding:36px 32px}
+.lg-card h2{margin:0 0 4px;font-family:var(--display);font-size:1.7rem;font-weight:800;color:var(--navy)}
+.lg-sub{margin:0 0 24px;color:var(--muted);font-size:.95rem}
+.lg-f{margin-bottom:18px}
+.lg-f label{display:block;font-weight:700;font-size:.9rem;margin-bottom:6px}
+.lg-in{position:relative;display:flex;align-items:center}
+.lg-in>.ic{position:absolute;inset-inline-start:12px;color:#7b8c94;pointer-events:none}
+.lg-in input{width:100%;padding:12px 42px;border:1px solid #cfd8dc;border-radius:8px;font:inherit;text-align:right;background:#fff}
+.lg-eye{position:absolute;inset-inline-end:6px;background:none;border:0;padding:6px;border-radius:6px;color:#7b8c94;cursor:pointer;display:flex}
+.lg-eye:hover{color:var(--navy);background:var(--soft)}
+.lg-err,.lg-warn{display:flex;gap:8px;align-items:flex-start;border-radius:8px;padding:10px 12px;font-size:.88rem;margin-bottom:14px}
+.lg-err{background:#fde8e8;color:#9b1c1c;border:1px solid #f5c2c2}
+.lg-warn{background:#fff6e5;color:#8a5a00;border:1px solid #f3dca8}
+.lg-btn{width:100%;padding:13px;border:0;border-radius:8px;background:linear-gradient(180deg,#0a6a8e,#073345);color:#fff;font:inherit;font-weight:700;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:filter .15s}
+.lg-btn:hover{filter:brightness(1.12)}
+.lg-btn[disabled]{opacity:.75;cursor:default}
+.lg-btn .spin{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+.lg-foot{margin:22px 0 0;padding-top:16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+.lg-foot a{color:var(--accent-d);font-weight:600}
+.lg-side{background:radial-gradient(circle at 15% 10%,rgba(5,173,207,.38),transparent 55%),linear-gradient(160deg,#0a6a8e,#073345);color:#fff;padding:64px 56px;display:flex;flex-direction:column;justify-content:center;gap:16px}
+.lg-badge{width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+.lg-badge .ic{width:30px;height:30px}
+.lg-side h1{margin:0;font-family:var(--display);font-size:2rem;line-height:1.4;font-weight:800}
+.lg-side p{margin:0;color:#cfe6ee;max-width:46ch}
+.lg-pts{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.lg-pts li{display:flex;gap:12px;align-items:flex-start;color:#e4f1f5}
+.lg-pts .ic{margin-top:2px;color:#7fe3f5}
+
+/* console shell: blue menu on the right (RTL) */
+.adm-shell{display:grid;grid-template-columns:272px 1fr;min-height:calc(100vh - 100px)}
+.adm-side{background:linear-gradient(180deg,#0a6a8e 0%,#073345 100%);color:#fff}
+.adm-side-in{position:sticky;top:96px;max-height:calc(100vh - 96px);overflow:auto;display:flex;flex-direction:column;padding:22px 14px;min-height:calc(100vh - 100px)}
+.adm-brand{display:flex;align-items:center;gap:12px;padding:0 8px 20px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.14)}
+.adm-brand b{display:block;font-family:var(--display);font-size:1.15rem;line-height:1.3}
+.adm-brand small{color:#a9cddb;font-size:.8rem}
+.adm-logo{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+.adm-navs{display:flex;flex-direction:column;gap:4px;flex:1}
+.adm-nav{position:relative;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:8px;color:#cfe6ee;text-decoration:none;font-weight:600;transition:background .15s,color .15s}
+.adm-nav:hover{background:rgba(255,255,255,.09);color:#fff}
+.adm-nav.on{background:rgba(255,255,255,.16);color:#fff}
+.adm-nav.on::before{content:"";position:absolute;inset-block:9px;inset-inline-start:0;width:4px;border-radius:4px;background:var(--orange)}
+.adm-nav:focus-visible,.adm-out:focus-visible,.adm-burger:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.adm-bd{margin-inline-start:auto;background:var(--orange);color:var(--navy);border-radius:999px;font-style:normal;font-size:.75rem;font-weight:800;padding:0 8px;line-height:1.7}
+.adm-user{display:flex;align-items:center;gap:10px;padding:14px 8px 0;margin-top:14px;border-top:1px solid rgba(255,255,255,.14)}
+.adm-av{width:38px;height:38px;border-radius:50%;background:var(--accent);color:var(--navy);font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+.adm-ut{min-width:0;flex:1;line-height:1.35}
+.adm-ut b{display:block;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-ut small{display:block;color:#a9cddb;font-size:.75rem;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.adm-out{background:rgba(255,255,255,.1);border:0;color:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
+.adm-out:hover{background:rgba(255,255,255,.2)}
+.adm-main{background:#f5f8fa;min-width:0}
+.adm-top{display:flex;align-items:center;gap:12px;padding:16px 28px;background:#fff;border-bottom:1px solid var(--line)}
+.adm-top h1{margin:0;flex:1;font-family:var(--display);font-size:1.5rem;color:var(--title);line-height:1.4}
+.adm-burger{display:none;background:var(--soft);border:1px solid var(--line);border-radius:8px;width:40px;height:40px;align-items:center;justify-content:center;cursor:pointer;color:var(--navy)}
+.adm-body{padding:26px 28px 48px;max-width:1180px}
+.adm-scrim{display:none}
+.adm-card{background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:20px 22px;margin-bottom:20px}
+.adm-card h3{margin:0 0 4px;font-family:var(--display);font-size:1.2rem;color:var(--title)}
+.adm-card>.sub{margin:0 0 16px;color:var(--muted);font-size:.9rem}
+.adm-narrow{max-width:560px}
+.adm-note{border-radius:8px;padding:10px 14px;margin:0 0 18px;font-size:.88rem;background:#e6f3f8;color:#0a5f7a;border:1px solid #c5e4ee}
+.adm-note.warn{background:#fff6e5;color:#8a5a00;border-color:#f3dca8}
+.adm-hello h2{margin:0 0 4px;font-family:var(--display);font-size:1.7rem;color:var(--navy)}
+.adm-hello p{margin:0 0 4px;color:var(--muted)}
+.adm-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;margin-top:8px}
+.adm-link{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px;text-decoration:none;color:inherit;box-shadow:var(--shadow);transition:border-color .15s,transform .15s}
+.adm-link:hover{border-color:var(--accent);transform:translateY(-1px)}
+.adm-link .ic{color:var(--accent-d);width:26px;height:26px;margin-top:2px}
+.adm-link b{display:block;color:var(--title)}
+.adm-link small{color:var(--muted);line-height:1.5;display:block}
+.adm-rq{border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:0 0 12px;background:#fff}
+.adm-rq-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.adm-rq-h b{color:var(--title)}
+.adm-rq .why{margin:6px 0 8px;white-space:pre-wrap}
+.adm-rq input[type=text]{width:100%}
+.adm-rq .hint{margin:0}
+.adm-ar{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid var(--line)}
+.adm-ar:last-child{border-bottom:0}
+.adm-ar .adm-av{background:var(--soft);color:var(--navy)}
+.adm-ai{flex:1 1 220px;min-width:0}
+.adm-ai b{color:var(--navy)}
+.adm-ai .hint{margin:2px 0 0;direction:ltr;text-align:right}
+.adm-ac{flex:2 1 280px;display:flex;flex-direction:column;gap:8px}
+.adm-ac .lbl{font-size:.78rem;color:var(--muted);font-weight:700;margin-inline-end:6px}
+.adm-ax{display:flex;gap:8px;flex-wrap:wrap}
+.adm-edit{flex:1 1 100%;margin-top:6px}
+.gf{border:1px solid var(--line);border-radius:8px;padding:12px 16px 14px;margin:0 0 16px;min-width:0}
+.gf legend{font-weight:800;color:var(--title);padding:0 6px}
+.gf-pre{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:2px 0 6px;font-size:.85rem;color:var(--muted)}
+.adm-pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 14px;font:inherit;font-size:.82rem;cursor:pointer;color:var(--navy)}
+.adm-pill:hover{border-color:var(--accent);background:var(--soft)}
+.gf-opt{display:flex;gap:10px;align-items:flex-start;padding:8px 0;cursor:pointer}
+.gf-opt input{accent-color:var(--accent);width:20px;height:20px;flex:none;margin-top:3px}
+.gf-opt b{display:block}
+.gf-opt small{display:block;color:var(--muted);line-height:1.5}
+.gf-cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 16px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+
+@media (max-width:900px){
+  .lg{grid-template-columns:1fr}
+  .lg-side{display:none}
+  .adm-shell{grid-template-columns:1fr}
+  .adm-side{position:fixed;z-index:60;inset-block:0;inset-inline-start:0;width:288px;max-width:86vw;transform:translateX(100%);transition:transform .22s}
+  .adm-side-in{position:static;max-height:none;height:100%;min-height:0}
+  .adm-shell.open .adm-side{transform:none}
+  .adm-shell.open .adm-scrim{display:block;position:fixed;inset:0;z-index:55;background:rgba(7,51,69,.5)}
+  .adm-burger{display:flex}
+  .adm-top{padding:12px 16px}
+  .adm-body{padding:18px 16px 40px}
+  .lg-card{padding:28px 20px}
+}
 </style>
 <script>document.documentElement.lang="ar";document.documentElement.dir="rtl";</script>
 
@@ -280,11 +401,8 @@ details.dd[open] summary{border-color:var(--accent)}
 
 <!-- ============ لوحة الإدارة ============ -->
 <main data-page="admin" hidden>
-  <section class="band"><div class="container"><h1>لوحة الإدارة</h1></div></section>
-  <div class="container">
-    <div id="adminBody" style="padding:36px 0 8px"></div>
-    <div id="homeBody"></div>
-  </div>
+  <div id="adminBody"></div>
+  <div id="homeBody" hidden></div>
 </main>
 
 <div class="container"><footer class="foot">تُحفظ إجاباتك لدى الجهة المسؤولة عن الاستمارة وتُستخدم لأغراض التخطيط والتطوير فقط.</footer></div>
@@ -811,7 +929,7 @@ $("#fileIn").onchange=async e=>{
 /* ===== لوحة الإدارة (محمية بكلمة مرور على الخادم) ===== */
 let ADMIN=false, lastPage="";
 const isAdmin=()=>ADMIN, getSession=()=>null;
-const ADM={records:[],settings:null,note:"",view:"all",tab:0,requests:[],admins:[],me:null};
+const ADM={records:[],settings:null,view:"all",tab:0,requests:[],admins:[],me:null,colleges:[],sec:"home",editId:"",flash:null};
 const REQ_ST={pending:["قيد المراجعة","wait"],approved:["موافق عليه","ok"],rejected:["مرفوض","no"],used:["استُخدم","" ]};
 
 async function api(path,body){
@@ -837,11 +955,30 @@ async function checkStatus(){
 }
 
 /* الدخول */
+const IC={
+  home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
+  chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  inbox:'<path d="M3 13l3-8h12l3 8v6H3zM3 13h5l1 3h6l1-3h5"/>',
+  toggle:'<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>',
+  download:'<path d="M12 3v12M7 11l5 5 5-5M4 21h16"/>',
+  key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-4 3-6 7-6s7 2 7 6M17 4.5a3.5 3.5 0 010 7M22 20c0-3-1.5-5-4-5.8"/>',
+  out:'<path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/>',
+  menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+  shield:'<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  lock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0112 5c6 0 10 7 10 7a17 17 0 01-3.2 3.9M6.6 6.7C3.8 8.5 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 004.2 4.2"/>',
+  warn:'<path d="M12 3l10 18H2zM12 10v5M12 18v.01"/>'
+};
+const ico=n=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||""}</svg>`;
+
 async function adminInit(){
   const box=$("#adminBody");
-  box.innerHTML='<p class="src">جارٍ التحميل…</p>'; $("#homeBody").innerHTML="";
+  box.innerHTML='<div class="adm-load"><span class="spin"></span><p>جارٍ تحميل لوحة الإدارة…</p></div>';
   const r=await api("/api/admin");
-  if(r.status===200&&r.j&&r.j.ok){ADMIN=true;ADM.records=r.j.records||[];ADM.settings=r.j.settings;ADM.requests=r.j.requests||[];ADM.admins=r.j.admins||[];ADM.me=r.j.me||null;renderAdmin();return;}
+  if(r.status===200&&r.j&&r.j.ok){ADMIN=true;ADM.records=r.j.records||[];ADM.settings=r.j.settings||null;ADM.requests=r.j.requests||[];ADM.admins=r.j.admins||[];ADM.me=r.j.me||null;ADM.colleges=r.j.colleges||[];ADM.editId="";renderAdmin();return;}
   ADMIN=false;
   if(r.status===401){renderLogin();return;}
   if(r.status===503){box.innerHTML='<div class="empty"><h2>لوحة الإدارة غير مفعّلة</h2><p>تحقق من متغيرات البيئة في Vercel: SESSION_SECRET (32 حرفًا على الأقل) ومفاتيح Supabase، ثم أعد النشر.</p></div>';return;}
@@ -849,101 +986,271 @@ async function adminInit(){
   box.innerHTML='<div class="empty"><h2>تعذر الاتصال بالخادم</h2><p>حاول مرة أخرى بعد قليل.</p></div>';
 }
 function renderLogin(){
-  $("#adminBody").innerHTML=`<form class="auth-card" id="admForm" novalidate style="max-width:440px;margin:0 auto">
-   <div class="af"><label for="admEm">البريد الإلكتروني للمسؤول</label><input id="admEm" type="email" dir="ltr" autocomplete="username" maxlength="120"></div>
-   <div class="af"><label for="admPass">كلمة المرور</label><div class="pw"><input id="admPass" type="password" dir="ltr" autocomplete="current-password" maxlength="200"><button type="button" class="pwt" id="admEye">إظهار</button></div></div>
-   <p class="hint">الدخول لحسابات المسؤولين فقط. استخدم بريد حسابك وكلمة مروره.</p>
-   <div class="amsg" id="admMsg" role="alert"></div><button type="submit" class="btn" id="admBtn">دخول</button></form>`;
-  $("#admEye").onclick=()=>{const i=$("#admPass");i.type=i.type==="password"?"text":"password";$("#admEye").textContent=i.type==="password"?"إظهار":"إخفاء";};
+  $("#adminBody").innerHTML=`<div class="lg">
+   <div class="lg-main"><form class="lg-card" id="admForm" novalidate>
+     <h2>تسجيل دخول المسؤولين</h2>
+     <p class="lg-sub">أدخل بيانات حساب المسؤول للوصول إلى لوحة الإدارة.</p>
+     <div class="lg-f"><label for="admEm">البريد الإلكتروني</label><div class="lg-in">${ico("mail")}<input id="admEm" type="email" dir="ltr" autocomplete="username" maxlength="120" placeholder="name@example.com"></div></div>
+     <div class="lg-f"><label for="admPass">كلمة المرور</label><div class="lg-in">${ico("lock")}<input id="admPass" type="password" dir="ltr" autocomplete="current-password" maxlength="200"><button type="button" class="lg-eye" id="admEye" aria-label="إظهار كلمة المرور" aria-pressed="false">${ico("eye")}</button></div></div>
+     <div class="lg-warn" id="admCaps" hidden>${ico("warn")}<span>زر Caps Lock مفعّل.</span></div>
+     <div class="lg-err" id="admMsg" role="alert" hidden>${ico("warn")}<span></span></div>
+     <button type="submit" class="lg-btn" id="admBtn"><span>تسجيل الدخول</span></button>
+     <div class="lg-foot"><span>${ico("lock").replace('class="ic"','class="ic" style="width:14px;height:14px;vertical-align:-2px"')} اتصال مشفّر وجلسة تنتهي بعد ساعتين</span><a href="#account">العودة إلى الموقع</a></div>
+   </form></div>
+   <aside class="lg-side">
+     <div class="lg-badge">${ico("shield")}</div>
+     <h1>بوابة إدارة بيانات الهيئة المعاونة</h1>
+     <p>مكان واحد لمتابعة الاستمارات ومراجعة طلبات التعديل وإدارة صلاحيات المسؤولين.</p>
+     <ul class="lg-pts">
+       <li>${ico("users")}<span>صلاحيات مستقلة لكل مسؤول، ونطاق محدد بالكليات المسموح بها</span></li>
+       <li>${ico("lock")}<span>جلسات محمية تنتهي تلقائيًّا، ويُراجَع الحساب مع كل طلب</span></li>
+       <li>${ico("shield")}<span>إيقاف مؤقت عند تكرار المحاولات الخاطئة</span></li>
+     </ul>
+   </aside></div>`;
+  const pw=$("#admPass"), em=$("#admEm");
+  const err=t=>{const m=$("#admMsg"); m.hidden=!t; $("span",m).textContent=t||"";};
+  const caps=e=>{$("#admCaps").hidden=!(e.getModifierState&&e.getModifierState("CapsLock"));};
+  pw.addEventListener("keydown",caps); pw.addEventListener("keyup",caps); pw.addEventListener("blur",()=>{$("#admCaps").hidden=true;});
+  $("#admEye").onclick=()=>{
+    const show=pw.type==="password"; pw.type=show?"text":"password";
+    const b=$("#admEye"); b.setAttribute("aria-pressed",show?"true":"false"); b.setAttribute("aria-label",show?"إخفاء كلمة المرور":"إظهار كلمة المرور"); b.innerHTML=ico(show?"eyeoff":"eye");
+  };
   $("#admForm").onsubmit=async e=>{
     e.preventDefault();
-    const em=$("#admEm").value.trim(), pw=$("#admPass").value, m=$("#admMsg"), b=$("#admBtn");
-    if(!em||!pw){m.textContent="أدخل البريد وكلمة المرور.";return;}
-    b.disabled=true; m.textContent="";
-    const r=await api("/api/admin",{action:"login",email:em,password:pw});
-    b.disabled=false;
+    const v=em.value.trim(), p=pw.value, b=$("#admBtn");
+    if(!v||!p){err("أدخل البريد الإلكتروني وكلمة المرور.");return;}
+    b.disabled=true; b.innerHTML='<span class="spin"></span><span>جارٍ التحقق…</span>'; err("");
+    const r=await api("/api/admin",{action:"login",email:v,password:p});
     if(r.status===200){adminInit();return;}
-    $("#admPass").value="";
-    m.textContent=r.status===429?"محاولات كثيرة. حاول بعد 15 دقيقة.":r.status===401?"البريد أو كلمة المرور غير صحيحة، أو الحساب ليس حساب مسؤول.":r.status===503?"لوحة الإدارة غير مفعّلة بعد.":"تعذر الاتصال بالخادم.";
+    b.disabled=false; b.innerHTML="<span>تسجيل الدخول</span>"; pw.value=""; pw.focus();
+    err(r.status===429?"محاولات كثيرة. حاول مرة أخرى بعد 15 دقيقة.":r.status===401?"البريد أو كلمة المرور غير صحيحة، أو أن الحساب ليس حساب مسؤول.":r.status===503?"لوحة الإدارة غير مفعّلة بعد.":"تعذر الاتصال بالخادم. حاول مرة أخرى.");
   };
+  em.focus();
 }
 
-/* لوحة التحكم */
-function stateText(s){return s.open?"الاستمارة مفتوحة الآن":(s.state==="closed"?"الاستمارة مغلقة الآن":"أُغلقت تلقائيًّا بعد انتهاء الموعد المحدد");}
+/* لوحة التحكم: قائمة زرقاء على اليمين وشاشة واحدة في كل مرة */
+const PERM_L={
+  data:["البيانات والتحليلات","عرض لوحة المؤشرات وتصدير الاستجابات"],
+  requests:["طلبات التعديل","مراجعة طلبات تعديل الاستمارات والموافقة عليها أو رفضها"],
+  settings:["إعدادات الاستمارة","فتح الاستمارة وإغلاقها وجدولة الإغلاق التلقائي"],
+  passwords:["كلمات المرور","إعادة تعيين كلمات مرور المستخدمين"]
+};
+const has=p=>!!(ADM.me&&ADM.me.permissions&&ADM.me.permissions.includes(p));
+const isOwner=()=>!!(ADM.me&&ADM.me.role==="owner");
+const pendN=()=>ADM.requests.filter(x=>x.status==="pending").length;
+const ADM_SECS=[
+  {k:"home",t:"نظرة عامة",i:"home",d:"ملخص حسابك وصلاحياتك",ok:()=>true,v:()=>secHome()},
+  {k:"analytics",t:"التحليلات",i:"chart",d:"مؤشرات الاستجابات عامة ولكل كلية",ok:()=>has("data"),v:()=>secAnalytics()},
+  {k:"requests",t:"طلبات التعديل",i:"inbox",d:"الموافقة على طلبات تعديل الاستمارات أو رفضها",ok:()=>has("requests"),badge:pendN,v:()=>secRequests()},
+  {k:"form",t:"حالة الاستمارة",i:"toggle",d:"فتح الاستمارة وإغلاقها وموعد الإغلاق",ok:()=>has("settings"),v:()=>secForm()},
+  {k:"export",t:"تصدير البيانات",i:"download",d:"تنزيل الاستجابات بصيغة CSV أو JSON",ok:()=>has("data"),v:()=>secExport()},
+  {k:"passwords",t:"كلمات المرور",i:"key",d:"إعادة تعيين كلمة مرور مستخدم",ok:()=>has("passwords"),v:()=>secPasswords()},
+  {k:"admins",t:"المسؤولون والصلاحيات",i:"users",d:"إضافة مسؤولين وتحديد صلاحياتهم وكلياتهم",ok:isOwner,v:()=>secAdmins()}
+];
+const admSecKey=()=>{const k=(location.hash||"").replace(/^#\/?admin\/?/,"").split("?")[0]; const s=ADM_SECS.find(x=>x.k===k&&x.ok()); return s?s.k:"home";};
+const admFlash=(id,t,ok)=>{ADM.flash=[id,t,!!ok];};
+// POST to the admin API; null when the session has expired (the sign-in page is shown)
+async function post(body){
+  const r=await api("/api/admin",body);
+  if(r.status===401){ADMIN=false;ADM.me=null;renderLogin();return null;}
+  return r;
+}
+const okRes=r=>r&&r.status===200&&r.j&&r.j.ok;
+const scopeText=()=>ADM.me&&ADM.me.colleges?ADM.me.colleges.map(CSHORT).join("، "):"كل الكليات";
+
 function renderAdmin(){
-  const s=ADM.settings, n=ADM.records.length, owner=!!(ADM.me&&ADM.me.role==="owner");
-  const pend=ADM.requests.filter(x=>x.status==="pending"), done=ADM.requests.filter(x=>x.status!=="pending").slice(0,10);
-  const reqItem=x=>`<div class="req"><b>${esc(x.name)}</b> <span class="hint" dir="ltr" style="display:inline">${esc(x.email)}</span><div class="why">${esc(x.reason)}</div><div class="hint">${esc(fmtDate(x.createdAt))}</div><input type="text" id="nt${esc(x.id)}" maxlength="300" placeholder="ملاحظة للمستخدم (اختياري)"><div class="row" style="margin-top:8px"><button class="btn sm" type="button" data-dec="approve" data-id="${esc(x.id)}">موافقة (تعديل واحد)</button><button class="btn ghost sm" type="button" data-dec="reject" data-id="${esc(x.id)}">رفض</button></div></div>`;
-  const doneItem=x=>{const st=REQ_ST[x.status]||[x.status,""]; return `<div class="req"><b>${esc(x.name)}</b> <span class="chip ${st[1]}">${esc(st[0])}</span><div class="hint" style="margin-top:6px">${esc(fmtDate(x.decidedAt||x.createdAt))}${x.note?" — "+esc(x.note):""}</div>${x.status==="approved"?`<div class="row" style="margin-top:8px"><button class="btn ghost sm" type="button" data-dec="reject" data-id="${esc(x.id)}">سحب الموافقة</button></div>`:""}</div>`;};
-  const reqFig=fig("طلبات التعديل",pend.length?pend.length+" طلب بانتظار قرارك":"لا توجد طلبات معلّقة",`${pend.map(reqItem).join("")}<div class="amsg" id="reqM" role="status"></div>${done.length?`<h4 class="sub2">آخر القرارات</h4>${done.map(doneItem).join("")}`:""}`);
-  const admRow=a=>`<div class="req"><b>${esc(a.name)}</b> <span class="chip ${a.role==="owner"?"ok":""}">${a.role==="owner"?"المالك":"مسؤول"}</span><div class="hint" dir="ltr" style="margin-top:4px">${esc(a.email)}</div>${owner&&a.role!=="owner"?`<button class="btn ghost sm" type="button" data-rm="${esc(a.id)}">إزالة الصلاحية</button>`:""}</div>`;
-  const adminsFig=fig("المسؤولون",owner?"أضف مسؤولًا من المستخدمين المسجّلين":"قائمة المسؤولين",`${ADM.admins.map(admRow).join("")}${owner?`<div class="af"><label for="adE">بريد مستخدم مسجّل</label><input id="adE" type="email" dir="ltr" autocomplete="off" maxlength="120"></div><div class="amsg" id="adM" role="status"></div><button class="btn" id="adB" type="button">إضافة كمسؤول</button>`:""}`);
-  $("#adminBody").innerHTML=`<div class="grid2">`+reqFig+
-   fig("حالة الاستمارة",stateText(s),`
+  ADM.sec=admSecKey();
+  const me=ADM.me||{}, secs=ADM_SECS.filter(s=>s.ok()), cur=secs.find(s=>s.k===ADM.sec)||secs[0];
+  const nav=secs.map(s=>{const b=s.badge?s.badge():0; return `<a class="adm-nav ${s.k===cur.k?"on":""}" href="#admin/${s.k}"${s.k===cur.k?' aria-current="page"':""}>${ico(s.i)}<span>${s.t}</span>${b?`<em class="adm-bd">${b}</em>`:""}</a>`;}).join("");
+  $("#adminBody").innerHTML=`<div class="adm-shell" id="admShell">
+    <aside class="adm-side" id="admSide" aria-label="قائمة الإدارة"><div class="adm-side-in">
+      <div class="adm-brand"><span class="adm-logo">${ico("shield")}</span><div><b>لوحة الإدارة</b><small>بوابة الهيئة المعاونة</small></div></div>
+      <nav class="adm-navs">${nav}</nav>
+      <div class="adm-user"><span class="adm-av">${esc(initial(me.name||me.email))}</span><div class="adm-ut"><b>${esc(me.name||"—")}</b><small dir="ltr">${esc(me.email||"")}</small></div><button type="button" class="adm-out" id="admOut" title="تسجيل الخروج" aria-label="تسجيل الخروج">${ico("out")}</button></div>
+    </div></aside>
+    <div class="adm-scrim" id="admScrim"></div>
+    <section class="adm-main"><header class="adm-top"><button type="button" class="adm-burger" id="admBurger" aria-label="فتح القائمة">${ico("menu")}</button><h1>${cur.t}</h1><span class="chip ${me.role==="owner"?"ok":""}">${me.role==="owner"?"المالك":"مسؤول"}</span></header><div class="adm-body" id="admSec"></div></section></div>`;
+  const shell=$("#admShell"), close=()=>shell.classList.remove("open");
+  $("#admBurger").onclick=()=>shell.classList.toggle("open");
+  $("#admScrim").onclick=close;
+  $$(".adm-nav",shell).forEach(a=>a.addEventListener("click",close));
+  $("#admOut").onclick=async()=>{await api("/api/admin",{action:"logout"});ADMIN=false;ADM.me=null;renderLogin();};
+  cur.v();
+  if(ADM.flash){aMsg(ADM.flash[0],ADM.flash[1],ADM.flash[2]);ADM.flash=null;}
+}
+
+/* --- نظرة عامة --- */
+function secHome(){
+  const me=ADM.me, own=isOwner(), cards=[];
+  if(has("data")) cards.push(kp(ADM.records.length,"الاستجابات"+(me.colleges?" في نطاقك":"")));
+  if(has("requests")) cards.push(kp(pendN(),"طلبات بانتظار القرار"));
+  if(has("settings")&&ADM.settings) cards.push(kp(ADM.settings.open?"مفتوحة":"مغلقة","حالة الاستمارة"));
+  if(own) cards.push(kp(ADM.admins.length,"عدد المسؤولين"));
+  const first=String(me.name||"").split(" ")[0];
+  const links=ADM_SECS.filter(s=>s.ok()&&s.k!=="home").map(s=>`<a class="adm-link" href="#admin/${s.k}">${ico(s.i)}<span><b>${s.t}</b><small>${s.d}</small></span></a>`).join("");
+  $("#admSec").innerHTML=`<div class="adm-hello"><h2>مرحبًا${first?" "+esc(first):""}</h2><p>اختر الشاشة التي تريدها من القائمة على اليمين.</p></div>`+
+    (cards.length?`<div class="kpis kp-s" style="margin-top:22px">${cards.join("")}</div>`:"")+
+    `<div class="adm-card" style="margin-top:24px"><h3>صلاحياتك</h3><p class="sub">${own?"أنت المالك: لديك جميع الصلاحيات وترى كل الكليات.":"يحددها مالك النظام لحسابك."}</p>
+      <p style="margin:0 0 6px"><b>الصلاحيات:</b> ${own?"جميعها":(me.permissions.length?esc(me.permissions.map(p=>PERM_L[p][0]).join("، ")):"لم تُمنح صلاحيات بعد. تواصل مع المالك.")}</p>
+      <p style="margin:0"><b>الكليات:</b> ${esc(scopeText())}</p></div>`+
+    (links?`<div class="adm-links">${links}</div>`:"");
+}
+
+/* --- التحليلات --- */
+function secAnalytics(){
+  const sc=ADM.me.colleges;
+  $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+'<div id="admDash"></div>';
+  renderDash();
+}
+
+/* --- طلبات التعديل --- */
+function secRequests(){
+  const pend=ADM.requests.filter(x=>x.status==="pending"), done=ADM.requests.filter(x=>x.status!=="pending").slice(0,15), sc=ADM.me.colleges;
+  const col=x=>x.college?`<span class="chip sc">${esc(CSHORT(x.college))}</span>`:"";
+  const reqItem=x=>`<div class="adm-rq"><div class="adm-rq-h"><b>${esc(x.name)}</b><span class="hint" dir="ltr">${esc(x.email)}</span>${col(x)}</div><div class="why">${esc(x.reason)}</div><div class="hint">${esc(fmtDate(x.createdAt))}</div><input type="text" id="nt${esc(x.id)}" maxlength="300" placeholder="ملاحظة للمستخدم (اختياري)"><div class="row" style="margin-top:8px"><button class="btn sm" type="button" data-dec="approve" data-id="${esc(x.id)}">موافقة (تعديل واحد)</button><button class="btn ghost sm" type="button" data-dec="reject" data-id="${esc(x.id)}">رفض</button></div></div>`;
+  const doneItem=x=>{const st=REQ_ST[x.status]||[x.status,""]; return `<div class="adm-rq"><div class="adm-rq-h"><b>${esc(x.name)}</b><span class="chip ${st[1]}">${esc(st[0])}</span>${col(x)}</div><div class="hint" style="margin-top:6px">${esc(fmtDate(x.decidedAt||x.createdAt))}${x.note?" — "+esc(x.note):""}</div>${x.status==="approved"?`<div class="row" style="margin-top:8px"><button class="btn ghost sm" type="button" data-dec="reject" data-id="${esc(x.id)}">سحب الموافقة</button></div>`:""}</div>`;};
+  $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك طلبات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+
+    `<div class="adm-card"><h3>بانتظار قرارك</h3><p class="sub">${pend.length?pend.length+" طلب":"لا توجد طلبات معلّقة"}</p>${pend.map(reqItem).join("")}<div class="amsg" id="reqM" role="status"></div></div>`+
+    (done.length?`<div class="adm-card"><h3>آخر القرارات</h3><p class="sub">آخر 15 قرارًا</p>${done.map(doneItem).join("")}</div>`:"");
+  $$("[data-dec]").forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.id, dec=b.dataset.dec, note=(($("#nt"+id)||{}).value||"").trim();
+    $$("[data-dec]").forEach(x=>x.disabled=true);
+    const r=await post({action:"decide",id,decision:dec,note}); if(!r) return;
+    if(okRes(r)){ADM.requests=r.j.requests||[];admFlash("reqM",dec==="approve"?"تمت الموافقة: للمستخدم تعديل واحد.":"تم تسجيل القرار.",true);renderAdmin();return;}
+    if(r.status===409){admFlash("reqM","تم البتّ في هذا الطلب مسبقًا أو ألغاه صاحبه.");await adminInit();return;}
+    $$("[data-dec]").forEach(x=>x.disabled=false);
+    aMsg("reqM",r.status===403?"لا تملك صلاحية البتّ في هذا الطلب.":"تعذر تنفيذ القرار. حاول مرة أخرى.");
+  });
+}
+
+/* --- حالة الاستمارة --- */
+function secForm(){
+  const s=ADM.settings;
+  $("#admSec").innerHTML=`<div class="adm-card adm-narrow"><h3>${esc(stateText(s))}</h3><p class="sub">تحكم في استقبال الاستجابات الجديدة.</p>
     <div class="af"><label class="opt"><input type="radio" name="admState" value="open" ${s.state==="open"?"checked":""}><span>مفتوحة</span></label>
     <label class="opt"><input type="radio" name="admState" value="closed" ${s.state==="closed"?"checked":""}><span>مغلقة</span></label></div>
     <div class="af"><label for="admAt">إغلاق تلقائي في (بتوقيت القاهرة)</label><input id="admAt" type="datetime-local" dir="ltr" value="${esc(s.closeAtLocal||"")}"><p class="hint">اتركه فارغًا لعدم الإغلاق التلقائي.</p></div>
     <div class="af"><label for="admText">رسالة تظهر للزوار عند الإغلاق</label><textarea id="admText" maxlength="500">${esc(s.message||"")}</textarea></div>
-    <div class="amsg ${ADM.note?"ok":""}" id="admSaveMsg" role="status">${esc(ADM.note)}</div>
-    <button class="btn" id="admSave" type="button">حفظ</button>`)+
-   fig("البيانات",n+" استجابة",`<div class="row" style="justify-content:center"><button class="btn ghost" id="admRef" type="button">تحديث</button><button class="btn ghost" id="admCsv" type="button">تصدير CSV</button><button class="btn ghost" id="admJson" type="button">تصدير JSON</button><button class="btn ghost" id="admOut" type="button">تسجيل الخروج</button></div><p class="src">المصدر: قاعدة البيانات (Supabase). ملفات التصدير تحتوي بيانات شخصية، فاحفظها في مكان آمن.</p>`)+
-   fig("إعادة تعيين كلمة مرور مستخدم","للمسؤول فقط. أعطِ المستخدم الكلمة الجديدة بنفسك.",`
-    <div class="af"><label for="rpE">بريد المستخدم</label><input id="rpE" type="email" dir="ltr" autocomplete="off" maxlength="120"></div>
-    <div class="af"><label for="rpP">كلمة المرور الجديدة</label><input id="rpP" type="text" dir="ltr" autocomplete="off" maxlength="72"><p class="hint">8 أحرف على الأقل وتحتوي حرفًا ورقمًا.</p></div>
-    <div class="amsg" id="rpM" role="status"></div>
-    <button class="btn" id="rpB" type="button">إعادة التعيين</button>`)+adminsFig+
-   `</div>`;
-  ADM.note="";
-  $("#rpB").onclick=async()=>{
-    const e=$("#rpE").value.trim(), p=$("#rpP").value, b=$("#rpB"), m=$("#rpM"); m.classList.remove("ok"); m.textContent="";
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){m.textContent="أدخل بريدًا صحيحًا.";return;}
-    if(p.length<8||!/[A-Za-z؀-ۿ]/.test(p)||!/\d/.test(p)){m.textContent="كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي حرفًا ورقمًا.";return;}
-    b.disabled=true;
-    const r=await api("/api/admin",{action:"resetpw",email:e,password:p});
-    b.disabled=false;
-    if(r.status===401){renderLogin();return;}
-    if(r.status===200&&r.j&&r.j.ok){$("#rpE").value="";$("#rpP").value="";m.classList.add("ok");m.textContent="تم تغيير كلمة المرور.";return;}
-    m.textContent=r.status===404?"لا يوجد حساب بهذا البريد.":r.status===403?"لا يمكن تغيير كلمة مرور حساب مسؤول من هنا.":"تعذر التنفيذ. حاول مرة أخرى.";
-  };
+    <div class="amsg" id="admSaveMsg" role="status"></div>
+    <button class="btn" id="admSave" type="button">حفظ</button></div>`;
   $("#admSave").onclick=async()=>{
     const st=($$("input[name=admState]").find(i=>i.checked)||{}).value;
-    const b=$("#admSave"), m=$("#admSaveMsg"); b.disabled=true; m.classList.remove("ok"); m.textContent="";
-    const r=await api("/api/admin",{action:"settings",state:st,closeAtLocal:$("#admAt").value,message:$("#admText").value});
+    const b=$("#admSave"); b.disabled=true; aMsg("admSaveMsg","");
+    const r=await post({action:"settings",state:st,closeAtLocal:$("#admAt").value,message:$("#admText").value}); if(!r) return;
     b.disabled=false;
-    if(r.status===200&&r.j&&r.j.ok){ADM.settings=r.j.settings;ADM.note="تم الحفظ.";renderAdmin();return;}
-    if(r.status===401){renderLogin();return;}
-    m.textContent=r.j&&r.j.error==="bad_date"?"صيغة التاريخ غير صحيحة.":"تعذر الحفظ. حاول مرة أخرى.";
+    if(okRes(r)){ADM.settings=r.j.settings;admFlash("admSaveMsg","تم الحفظ.",true);renderAdmin();return;}
+    aMsg("admSaveMsg",r.j&&r.j.error==="bad_date"?"صيغة التاريخ غير صحيحة.":r.status===403?"لا تملك صلاحية تعديل الإعدادات.":"تعذر الحفظ. حاول مرة أخرى.");
   };
-  $$("[data-dec]").forEach(b=>b.onclick=async()=>{
-    const id=b.dataset.id, dec=b.dataset.dec, note=(($("#nt"+id)||{}).value||"").trim();
-    $$("[data-dec]").forEach(x=>x.disabled=true);
-    const r=await api("/api/admin",{action:"decide",id,decision:dec,note});
-    if(r.status===401){renderLogin();return;}
-    if(r.status===200&&r.j&&r.j.ok){ADM.requests=r.j.requests||[];renderAdmin();aMsg("reqM",dec==="approve"?"تمت الموافقة: للمستخدم تعديل واحد.":"تم تسجيل القرار.",true);return;}
-    if(r.status===409){await adminInit();aMsg("reqM","تم البتّ في هذا الطلب مسبقًا أو ألغاه صاحبه.");return;}
-    $$("[data-dec]").forEach(x=>x.disabled=false); aMsg("reqM","تعذر تنفيذ القرار. حاول مرة أخرى.");
-  });
-  const ab=$("#adB"); if(ab) ab.onclick=async()=>{
-    const e=$("#adE").value.trim(); aMsg("adM","");
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){aMsg("adM","أدخل بريدًا صحيحًا.");return;}
-    ab.disabled=true; const r=await api("/api/admin",{action:"addadmin",email:e}); ab.disabled=false;
-    if(r.status===401){renderLogin();return;}
-    if(r.status===200&&r.j&&r.j.ok){ADM.admins=r.j.admins||[];renderAdmin();aMsg("adM","تمت الإضافة.",true);return;}
-    aMsg("adM",r.status===404?"لا يوجد حساب مسجّل بهذا البريد. اطلب منه إنشاء حساب أولًا.":r.status===403?"هذا الإجراء للمالك فقط.":"تعذر التنفيذ. حاول مرة أخرى.");
-  };
-  $$("[data-rm]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("إزالة صلاحية المسؤول من هذا الحساب؟")) return;
-    b.disabled=true; const r=await api("/api/admin",{action:"removeadmin",id:b.dataset.rm});
-    if(r.status===401){renderLogin();return;}
-    if(r.status===200&&r.j&&r.j.ok){ADM.admins=r.j.admins||[];renderAdmin();return;}
-    b.disabled=false; aMsg("adM","تعذر التنفيذ. حاول مرة أخرى.");
-  });
+}
+
+/* --- تصدير البيانات --- */
+function secExport(){
+  const n=ADM.records.length, sc=ADM.me.colleges;
+  $("#admSec").innerHTML=`<div class="adm-card adm-narrow"><h3>${n} استجابة</h3><p class="sub">${sc?"ضمن الكليات المسموح بها لك: "+esc(scopeText()):"من جميع الكليات"}</p>
+    <div class="row"><button class="btn" id="admCsv" type="button">تصدير CSV</button><button class="btn ghost" id="admJson" type="button">تصدير JSON</button><button class="btn ghost" id="admRef" type="button">تحديث البيانات</button></div>
+    <p class="adm-note warn" style="margin:16px 0 0">ملفات التصدير تحتوي بيانات شخصية، فاحفظها في مكان آمن.</p></div>`;
   $("#admRef").onclick=adminInit;
   $("#admCsv").onclick=()=>download("responses.csv","text/csv;charset=utf-8",csvOf(ADM.records));
   $("#admJson").onclick=()=>download("responses.json","application/json",JSON.stringify({questions:labelMap(),responses:ADM.records},null,2));
-  $("#admOut").onclick=async()=>{await api("/api/admin",{action:"logout"});ADMIN=false;ADM.me=null;$("#homeBody").innerHTML="";renderLogin();};
-  renderDash();
 }
+
+/* --- كلمات المرور --- */
+function secPasswords(){
+  const sc=ADM.me.colleges;
+  $("#admSec").innerHTML=`<div class="adm-card adm-narrow"><h3>إعادة تعيين كلمة مرور مستخدم</h3><p class="sub">أعطِ المستخدم الكلمة الجديدة بنفسك.${sc?" يقتصر ذلك على مستخدمي كلياتك.":""}</p>
+    <div class="af"><label for="rpE">بريد المستخدم</label><input id="rpE" type="email" dir="ltr" autocomplete="off" maxlength="120"></div>
+    <div class="af"><label for="rpP">كلمة المرور الجديدة</label><input id="rpP" type="text" dir="ltr" autocomplete="off" maxlength="72"><p class="hint">8 أحرف على الأقل وتحتوي حرفًا ورقمًا.</p></div>
+    <div class="amsg" id="rpM" role="status"></div>
+    <button class="btn" id="rpB" type="button">إعادة التعيين</button></div>`;
+  $("#rpB").onclick=async()=>{
+    const e=$("#rpE").value.trim(), p=$("#rpP").value, b=$("#rpB"); aMsg("rpM","");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){aMsg("rpM","أدخل بريدًا صحيحًا.");return;}
+    if(p.length<8||!/[A-Za-z؀-ۿ]/.test(p)||!/\d/.test(p)){aMsg("rpM","كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي حرفًا ورقمًا.");return;}
+    b.disabled=true;
+    const r=await post({action:"resetpw",email:e,password:p}); if(!r) return;
+    b.disabled=false;
+    if(okRes(r)){$("#rpE").value="";$("#rpP").value="";aMsg("rpM","تم تغيير كلمة المرور.",true);return;}
+    aMsg("rpM",r.status===404?"لا يوجد مستخدم بهذا البريد ضمن نطاقك.":r.status===403?(r.j&&r.j.error==="forbidden"?"لا تملك صلاحية إعادة تعيين كلمات المرور.":"لا يمكن تغيير كلمة مرور حساب مسؤول من هنا."):"تعذر التنفيذ. حاول مرة أخرى.");
+  };
+}
+
+/* --- المسؤولون والصلاحيات (للمالك) --- */
+function grantForm(p,g){
+  const all=!g.colleges;
+  return `<fieldset class="gf"><legend>الصلاحيات</legend>
+    <div class="gf-pre"><span>قوالب جاهزة:</span>
+      <button type="button" class="adm-pill" data-pre="${p}" data-set="data,requests,settings,passwords">صلاحيات كاملة</button>
+      <button type="button" class="adm-pill" data-pre="${p}" data-set="requests">مراجع طلبات</button>
+      <button type="button" class="adm-pill" data-pre="${p}" data-set="data">محلل بيانات</button>
+      <button type="button" class="adm-pill" data-pre="${p}" data-set="">مسح</button></div>
+    ${Object.keys(PERM_L).map(k=>`<label class="gf-opt"><input type="checkbox" name="${p}perm" value="${k}" ${g.permissions.includes(k)?"checked":""}><span><b>${PERM_L[k][0]}</b><small>${PERM_L[k][1]}</small></span></label>`).join("")}
+  </fieldset>
+  <fieldset class="gf"><legend>الكليات المسموح بها</legend>
+    <label class="opt"><input type="radio" name="${p}scope" value="all" ${all?"checked":""}><span>كل الكليات</span></label>
+    <label class="opt"><input type="radio" name="${p}scope" value="sel" ${all?"":"checked"}><span>كليات محددة فقط</span></label>
+    <div class="gf-cols" id="${p}cols" ${all?"hidden":""}>${ADM.colleges.map(c=>`<label class="opt"><input type="checkbox" name="${p}col" value="${esc(c)}" ${g.colleges&&g.colleges.includes(c)?"checked":""}><span>${esc(c)}</span></label>`).join("")}</div>
+    <p class="hint" style="margin:8px 0 0">المسؤول المحدود بكليات يرى بيانات وطلبات ومستخدمي هذه الكليات فقط.</p>
+  </fieldset>`;
+}
+function bindGrant(p){
+  $$(`[data-pre="${p}"]`).forEach(b=>b.onclick=()=>{const set=b.dataset.set.split(",").filter(Boolean); $$(`input[name=${p}perm]`).forEach(i=>i.checked=set.includes(i.value));});
+  $$(`input[name=${p}scope]`).forEach(i=>i.onchange=()=>{$("#"+p+"cols").hidden=($(`input[name=${p}scope]:checked`)||{}).value!=="sel";});
+}
+// returns {permissions,allColleges,colleges} or a string with the problem
+function readGrantForm(p){
+  const permissions=$$(`input[name=${p}perm]:checked`).map(i=>i.value);
+  const all=($(`input[name=${p}scope]:checked`)||{}).value!=="sel";
+  const colleges=$$(`input[name=${p}col]:checked`).map(i=>i.value);
+  if(!permissions.length) return "اختر صلاحية واحدة على الأقل.";
+  if(!all&&!colleges.length) return "اختر كلية واحدة على الأقل أو اجعل النطاق «كل الكليات».";
+  return {permissions,allColleges:all,colleges:all?[]:colleges};
+}
+function secAdmins(){
+  const rows=ADM.admins.map(a=>{
+    const own=a.role==="owner", editing=ADM.editId===a.id;
+    const pc=own?'<span class="chip ok">جميع الصلاحيات</span>':(a.permissions.length?a.permissions.map(k=>`<span class="chip">${esc((PERM_L[k]||[k])[0])}</span>`).join(" "):'<span class="chip wait">بلا صلاحيات</span>');
+    const cc=!a.colleges?'<span class="chip sc">كل الكليات</span>':a.colleges.map(c=>`<span class="chip sc">${esc(CSHORT(c))}</span>`).join(" ");
+    return `<div class="adm-ar"><span class="adm-av">${esc(initial(a.name||a.email))}</span>
+      <div class="adm-ai"><b>${esc(a.name)}</b> <span class="chip ${own?"ok":""}">${own?"المالك":"مسؤول"}</span><p class="hint">${esc(a.email)}</p></div>
+      <div class="adm-ac"><div class="adm-ax"><span class="lbl">الصلاحيات</span>${pc}</div><div class="adm-ax"><span class="lbl">الكليات</span>${cc}</div></div>
+      ${own?"":`<div class="adm-ax"><button class="btn ghost sm" type="button" data-edit="${esc(a.id)}">${editing?"إغلاق":"تعديل الصلاحيات"}</button><button class="btn ghost sm" type="button" data-rm="${esc(a.id)}">إزالة</button></div>`}
+      ${editing?`<div class="adm-edit">${grantForm("e",a)}<div class="amsg" id="eM" role="status"></div><button class="btn sm" type="button" id="eSave" data-id="${esc(a.id)}">حفظ التعديلات</button></div>`:""}
+    </div>`;}).join("");
+  $("#admSec").innerHTML=`<div class="adm-card"><h3>المسؤولون الحاليون</h3><p class="sub">يرى المسؤول الأقسام التي مُنح صلاحيتها فقط، وفي الكليات المحددة له.</p>${rows||'<div class="none">لا يوجد مسؤولون.</div>'}</div>`+
+    `<div class="adm-card"><h3>إضافة مسؤول</h3><p class="sub">يجب أن يكون الشخص قد أنشأ حسابًا في الموقع أولًا.</p>
+      <div class="af adm-narrow"><label for="adE">بريد مستخدم مسجّل</label><input id="adE" type="email" dir="ltr" autocomplete="off" maxlength="120"></div>
+      ${grantForm("n",{permissions:[],colleges:null})}
+      <div class="amsg" id="adM" role="status"></div><button class="btn" id="adB" type="button">إضافة كمسؤول</button></div>`;
+  bindGrant("n"); if(ADM.editId) bindGrant("e");
+  $("#adB").onclick=async()=>{
+    const e=$("#adE").value.trim(), g=readGrantForm("n"); aMsg("adM","");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){aMsg("adM","أدخل بريدًا صحيحًا.");return;}
+    if(typeof g==="string"){aMsg("adM",g);return;}
+    const b=$("#adB"); b.disabled=true;
+    const r=await post(Object.assign({action:"addadmin",email:e},g)); if(!r) return;
+    b.disabled=false;
+    if(okRes(r)){ADM.admins=r.j.admins||[];admFlash("adM","تمت الإضافة.",true);renderAdmin();return;}
+    aMsg("adM",r.status===404?"لا يوجد حساب مسجّل بهذا البريد. اطلب منه إنشاء حساب أولًا.":r.status===409?"هذا الحساب مسؤول بالفعل. استخدم «تعديل الصلاحيات».":r.status===403?"هذا الإجراء للمالك فقط.":"تعذر التنفيذ. حاول مرة أخرى.");
+  };
+  $$("[data-edit]").forEach(b=>b.onclick=()=>{ADM.editId=ADM.editId===b.dataset.edit?"":b.dataset.edit;secAdmins();});
+  const es=$("#eSave"); if(es) es.onclick=async()=>{
+    const g=readGrantForm("e"); aMsg("eM","");
+    if(typeof g==="string"){aMsg("eM",g);return;}
+    es.disabled=true;
+    const r=await post(Object.assign({action:"updateadmin",id:es.dataset.id},g)); if(!r) return;
+    es.disabled=false;
+    if(okRes(r)){ADM.admins=r.j.admins||[];ADM.editId="";renderAdmin();return;}
+    aMsg("eM",r.status===404?"لم يعد هذا الحساب مسؤولًا.":"تعذر الحفظ. حاول مرة أخرى.");
+  };
+  $$("[data-rm]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("إزالة صلاحية المسؤول من هذا الحساب؟")) return;
+    b.disabled=true; const r=await post({action:"removeadmin",id:b.dataset.rm}); if(!r) return;
+    if(okRes(r)){ADM.admins=r.j.admins||[];ADM.editId="";renderAdmin();return;}
+    b.disabled=false; aMsg("adM","تعذر التنفيذ. حاول مرة أخرى.");
+  });
+}
+
+function stateText(s){return s.open?"الاستمارة مفتوحة الآن":(s.state==="closed"?"الاستمارة مغلقة الآن":"أُغلقت تلقائيًّا بعد انتهاء الموعد المحدد");}
 
 /* لوحة المؤشرات: عرض عام + عرض لكل كلية (أيقونات) */
 const CICON=["🩺","🦷","🏃","🐾","⚙️","💻","📊","🎨","⚡","🧬"];
@@ -1007,14 +1314,15 @@ function dashPanes(rs,all){
 }
 
 function renderDash(){
-  const root=$("#homeBody");
+  const root=$("#admDash"); if(!root) return;
   if(!ADM.records.length){root.innerHTML='<div class="empty"><h2>لا توجد استجابات بعد</h2><p>ستظهر المؤشرات هنا بمجرد وصول أول استمارة.</p></div>';return;}
   const rows=mapRows();
   const view=ADM.view||"all", tab=ADM.tab||0;
-  const col=view==="all"?null:COLLEGES.find(c=>c[0]===view);
+  const scope=ADM.me&&ADM.me.colleges, visCols=scope?COLLEGES.filter(c=>scope.includes(c[0])):COLLEGES;
+  const col=view==="all"?null:visCols.find(c=>c[0]===view);
   const rs=col?rows.filter(r=>r.a.q7===view):rows;
   const tiles=`<div class="tiles"><button type="button" class="tile ${!col?"on":""}" data-v="all"><span class="ti">📈</span><b>التحليل العام</b><small>${rows.length}</small></button>`+
-    COLLEGES.map((c,i)=>`<button type="button" class="tile ${col&&col[0]===c[0]?"on":""}" data-v="${esc(c[0])}"><span class="ti">${CICON[i]||"🏛️"}</span><b>${esc(CSHORT(c[0]))}</b><small>${rows.filter(r=>r.a.q7===c[0]).length}</small></button>`).join("")+`</div>`;
+    visCols.map(c=>`<button type="button" class="tile ${col&&col[0]===c[0]?"on":""}" data-v="${esc(c[0])}"><span class="ti">${CICON[COLLEGES.indexOf(c)]||"🏛️"}</span><b>${esc(CSHORT(c[0]))}</b><small>${rows.filter(r=>r.a.q7===c[0]).length}</small></button>`).join("")+`</div>`;
   let body;
   if(!rs.length) body='<div class="empty"><h2>لا توجد استجابات لهذه الكلية بعد</h2></div>';
   else{
@@ -1067,7 +1375,7 @@ function renderChrome(){
 function routeApp(){
   const h=(location.hash||"").replace(/^#\/?/,"");
   let page;
-  if(h==="admin") page="admin";
+  if(h==="admin"||h.indexOf("admin/")===0) page="admin";
   else if(!ME_READY) page="boot";
   else if(!USER) page="auth";
   // a submitted response is locked: the form opens again only while an approved edit request is waiting
@@ -1075,7 +1383,7 @@ function routeApp(){
   else page="account";
   if((h==="form"||h==="edit")&&page==="account") try{history.replaceState(null,"","#account");}catch(e){}
   $$("[data-page]").forEach(m=>m.hidden=m.dataset.page!==page);
-  if(page==="admin"&&lastPage!=="admin") adminInit();
+  if(page==="admin"){ if(lastPage!=="admin") adminInit(); else if(ADMIN) renderAdmin(); }
   if(page==="auth") renderAuth(h);
   if(page==="account") renderAccount();
   if(page==="form"&&(lastPage!=="form"||curHash!==h)) enterForm();

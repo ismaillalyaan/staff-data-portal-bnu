@@ -1,9 +1,13 @@
 // Admin API. No shared password: admins are normal accounts listed in public.admins.
+// Every admin has a role (owner / admin), a list of permissions and an optional college scope:
+//   permissions: data (dashboard + export), requests (edit requests), settings (open/close the form), passwords (reset user passwords)
+//   colleges:    null = all colleges, otherwise only people/responses of the listed colleges
+// The owner always has every permission and sees every college.
 //   login / logout          - email + password of an admin account
-//   settings                - open / close the form
-//   decide                  - approve or reject a user's edit request (one approval = one edit)
-//   addadmin / removeadmin  - owner only
-//   resetpw                 - reset a user's password
+//   settings                - open / close the form                     (settings)
+//   decide                  - approve or reject an edit request         (requests, in college scope)
+//   resetpw                 - reset a user's password                   (passwords, in college scope)
+//   addadmin / updateadmin / removeadmin - owner only
 const L = require("./_lib.js");
 const S = require("./_sb.js");
 
@@ -11,6 +15,13 @@ const MAX_BODY = 10 * 1024;
 const FAIL_MAX = 5, FAIL_WINDOW = 15 * 60 * 1000, SESSION_SEC = 2 * 60 * 60;
 const fails = new Map(); // key (ip or email) -> [timestamps]
 const enc = encodeURIComponent;
+
+// Must match the college list in index.html.
+const COLLEGES = [
+  "كلية الطب البشري", "كلية طب الأسنان", "كلية العلاج الطبيعي", "كلية الطب البيطري", "كلية الهندسة",
+  "كلية علوم الحاسب", "كلية الاقتصاد وإدارة الأعمال", "كلية الفنون البصرية والتصميم", "كلية علوم الطاقة",
+  "كلية تكنولوجيا العلوم الصحية التطبيقية"
+];
 
 function failed(k) { const now = Date.now(); const l = (fails.get(k) || []).filter(t => now - t < FAIL_WINDOW); l.push(now); fails.set(k, l); }
 function blocked(k) { const now = Date.now(); const l = (fails.get(k) || []).filter(t => now - t < FAIL_WINDOW); fails.set(k, l); return l.length >= FAIL_MAX; }
@@ -21,14 +32,47 @@ function view(s) {
   return { state: s.state, closeAtLocal: L.isoToCairo(s.closeAt), message: s.message, open: L.isOpen(s) };
 }
 
-// Edit requests with the requester's name and email (newest first).
-async function listRequests() {
+// What the browser needs to know about the signed-in admin.
+function meView(me, p) {
+  return { id: me.uid, role: me.role, name: (p && p.full_name) || "", email: (p && p.email) || "", permissions: me.permissions, colleges: me.colleges };
+}
+
+// Validate the permission list and college scope sent when adding or editing an admin.
+// Returns { permissions, colleges } or null when the input is malformed.
+function readGrant(b) {
+  if (!Array.isArray(b.permissions) || b.permissions.length > 20) return null;
+  const permissions = [...new Set(b.permissions.map(String))];
+  if (!permissions.every(p => L.PERMS.includes(p))) return null;
+  let colleges = null; // all colleges
+  if (b.allColleges === false) {
+    if (!Array.isArray(b.colleges) || !b.colleges.length || b.colleges.length > COLLEGES.length) return null;
+    colleges = [...new Set(b.colleges.map(String))];
+    if (!colleges.every(c => COLLEGES.includes(c))) return null;
+  }
+  return { permissions, colleges };
+}
+
+// user id -> college (from the user's submitted response); users without a response are missing.
+async function collegesByUser(ids) {
+  const uniq = [...new Set(ids.filter(i => UUID.test(String(i))))];
+  const out = {};
+  if (!uniq.length) return out;
+  const r = await S.db("responses?user_id=in.(" + uniq.join(",") + ")&select=user_id,answers");
+  if (!r.ok) throw new Error("responses read failed");
+  for (const x of r.j) out[x.user_id] = L.collegeOf(x.answers);
+  return out;
+}
+
+// Edit requests with the requester's name and email (newest first), limited to the admin's colleges.
+async function listRequests(me) {
   const r = await S.db("edit_requests?select=id,user_id,reason,status,admin_note,created_at,decided_at,used_at&order=created_at.desc&limit=200");
   if (!r.ok) throw new Error("requests read failed");
-  const people = await peopleById(r.j.map(x => x.user_id));
-  return r.j.map(x => ({
+  const ids = r.j.map(x => x.user_id);
+  const [people, cols] = await Promise.all([peopleById(ids), collegesByUser(ids)]);
+  return r.j.filter(x => L.inScope(me, cols[x.user_id] || "")).map(x => ({
     id: x.id, status: x.status, reason: x.reason, note: x.admin_note || "",
     name: (people[x.user_id] || {}).full_name || "—", email: (people[x.user_id] || {}).email || "",
+    college: cols[x.user_id] || "",
     createdAt: x.created_at, decidedAt: x.decided_at, usedAt: x.used_at
   }));
 }
@@ -42,10 +86,20 @@ async function peopleById(ids) {
   return out;
 }
 async function listAdmins() {
-  const r = await S.db("admins?select=user_id,role,created_at&order=created_at.asc");
+  const r = await S.db("admins?select=user_id,role,permissions,colleges,created_at&order=created_at.asc");
   if (!r.ok) throw new Error("admins read failed");
   const people = await peopleById(r.j.map(x => x.user_id));
-  return r.j.map(x => ({ id: x.user_id, role: x.role, createdAt: x.created_at, name: (people[x.user_id] || {}).full_name || "—", email: (people[x.user_id] || {}).email || "" }));
+  return r.j.map(x => ({
+    id: x.user_id, role: x.role, createdAt: x.created_at,
+    permissions: x.role === "owner" ? L.PERMS.slice() : (x.permissions || []),
+    colleges: x.role === "owner" || !Array.isArray(x.colleges) ? null : x.colleges,
+    name: (people[x.user_id] || {}).full_name || "—", email: (people[x.user_id] || {}).email || ""
+  }));
+}
+// Responses limited to the admin's colleges.
+async function scopedRecords(me) {
+  const all = await L.readRecords();
+  return me.colleges ? all.filter(x => me.colleges.includes(L.collegeOf(x.a))) : all;
 }
 
 module.exports = async (req, res) => {
@@ -55,9 +109,18 @@ module.exports = async (req, res) => {
     if (req.method === "GET") {
       const me = await L.adminOf(req);
       if (!me) return L.send(res, 401, { ok: false });
-      const [settings, records, requests, admins, mine] = await Promise.all([L.readSettings(true), L.readRecords(), listRequests(), listAdmins(), peopleById([me.uid])]);
-      const p = mine[me.uid] || {};
-      return L.send(res, 200, { ok: true, me: { id: me.uid, role: me.role, name: p.full_name || "", email: p.email || "" }, settings: view(settings), records, requests, admins });
+      const owner = me.role === "owner";
+      const [settings, records, requests, admins, mine] = await Promise.all([
+        L.can(me, "settings") ? L.readSettings(true) : null,
+        L.can(me, "data") ? scopedRecords(me) : [],
+        L.can(me, "requests") ? listRequests(me) : [],
+        owner ? listAdmins() : [],
+        peopleById([me.uid])
+      ]);
+      return L.send(res, 200, {
+        ok: true, me: meView(me, mine[me.uid]), colleges: COLLEGES,
+        settings: settings ? view(settings) : null, records, requests, admins
+      });
     }
 
     if (req.method !== "POST") { res.setHeader("Allow", "GET, POST"); return L.send(res, 405, { ok: false }); }
@@ -89,6 +152,7 @@ module.exports = async (req, res) => {
     const owner = me.role === "owner";
 
     if (b.action === "settings") {
+      if (!L.can(me, "settings")) return L.send(res, 403, { ok: false, error: "forbidden" });
       const state = b.state === "closed" ? "closed" : b.state === "open" ? "open" : null;
       if (!state) return L.send(res, 400, { ok: false });
       let closeAt = "";
@@ -104,11 +168,20 @@ module.exports = async (req, res) => {
 
     /* ---- edit requests: approve = the user may edit exactly once; reject / revoke = no edit ---- */
     if (b.action === "decide") {
+      if (!L.can(me, "requests")) return L.send(res, 403, { ok: false, error: "forbidden" });
       const id = String(b.id || "");
       if (!UUID.test(id)) return L.send(res, 400, { ok: false });
       const approve = b.decision === "approve";
       if (!approve && b.decision !== "reject") return L.send(res, 400, { ok: false });
       const note = L.cleanText(b.note, 300);
+      // a college-limited admin may only decide requests of people in their colleges
+      if (me.colleges) {
+        const q = await S.db("edit_requests?id=eq." + enc(id) + "&select=user_id&limit=1");
+        if (!q.ok) return L.send(res, 502, { ok: false });
+        if (!q.j[0]) return L.send(res, 409, { ok: false, error: "not_pending" });
+        const cols = await collegesByUser([q.j[0].user_id]);
+        if (!L.inScope(me, cols[q.j[0].user_id] || "")) return L.send(res, 403, { ok: false, error: "forbidden" });
+      }
       // approve only works on a pending request; reject also revokes an approval that was not used yet
       const from = approve ? "eq.pending" : "in.(pending,approved)";
       const u = await S.db("edit_requests?id=eq." + enc(id) + "&status=" + from + "&select=id", {
@@ -117,7 +190,7 @@ module.exports = async (req, res) => {
       });
       if (!u.ok) return L.send(res, 502, { ok: false });
       if (!Array.isArray(u.j) || !u.j.length) return L.send(res, 409, { ok: false, error: "not_pending" });
-      return L.send(res, 200, { ok: true, requests: await listRequests() });
+      return L.send(res, 200, { ok: true, requests: await listRequests(me) });
     }
 
     /* ---- admin management (owner only) ---- */
@@ -125,14 +198,34 @@ module.exports = async (req, res) => {
       if (!owner) return L.send(res, 403, { ok: false });
       const email = S.normEmail(b.email);
       if (!S.validEmail(email)) return L.send(res, 400, { ok: false, error: "bad_email" });
+      const grant = readGrant(b);
+      if (!grant) return L.send(res, 400, { ok: false, error: "bad_grant" });
       const p = await S.db("profiles?email=eq." + enc(email) + "&select=id&limit=1");
       if (!p.ok) return L.send(res, 502, { ok: false });
       if (!p.j[0]) return L.send(res, 404, { ok: false, error: "not_found" }); // the person must register first
-      const ins = await S.db("admins?on_conflict=user_id", {
-        method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
-        body: { user_id: p.j[0].id, role: "admin" }
+      const ex = await S.db("admins?user_id=eq." + enc(p.j[0].id) + "&select=user_id&limit=1");
+      if (!ex.ok) return L.send(res, 502, { ok: false });
+      if (ex.j[0]) return L.send(res, 409, { ok: false, error: "already_admin" });
+      const ins = await S.db("admins", {
+        method: "POST", headers: { Prefer: "return=minimal" },
+        body: { user_id: p.j[0].id, role: "admin", permissions: grant.permissions, colleges: grant.colleges }
       });
       if (!ins.ok) return L.send(res, 502, { ok: false });
+      return L.send(res, 200, { ok: true, admins: await listAdmins() });
+    }
+    if (b.action === "updateadmin") {
+      if (!owner) return L.send(res, 403, { ok: false });
+      const id = String(b.id || "");
+      if (!UUID.test(id)) return L.send(res, 400, { ok: false });
+      const grant = readGrant(b);
+      if (!grant) return L.send(res, 400, { ok: false, error: "bad_grant" });
+      // never the owner (role=eq.admin), so the owner can't lock themselves out
+      const u = await S.db("admins?user_id=eq." + enc(id) + "&role=eq.admin&select=user_id", {
+        method: "PATCH", headers: { Prefer: "return=representation" },
+        body: { permissions: grant.permissions, colleges: grant.colleges }
+      });
+      if (!u.ok) return L.send(res, 502, { ok: false });
+      if (!Array.isArray(u.j) || !u.j.length) return L.send(res, 404, { ok: false, error: "not_found" });
       return L.send(res, 200, { ok: true, admins: await listAdmins() });
     }
     if (b.action === "removeadmin") {
@@ -147,6 +240,7 @@ module.exports = async (req, res) => {
 
     /* ---- reset a user's password (users have no reset option of their own) ---- */
     if (b.action === "resetpw") {
+      if (!L.can(me, "passwords")) return L.send(res, 403, { ok: false, error: "forbidden" });
       const email = S.normEmail(b.email);
       if (!S.validEmail(email)) return L.send(res, 400, { ok: false, error: "bad_email" });
       if (!S.validPassword(b.password)) return L.send(res, 400, { ok: false, error: "bad_password" });
@@ -154,6 +248,11 @@ module.exports = async (req, res) => {
       if (!p.ok) return L.send(res, 502, { ok: false });
       if (!p.j || !p.j[0]) return L.send(res, 404, { ok: false, error: "not_found" });
       const target = p.j[0].id;
+      // a college-limited admin may only reset people whose response belongs to their colleges
+      if (me.colleges) {
+        const cols = await collegesByUser([target]);
+        if (!L.inScope(me, cols[target] || "")) return L.send(res, 404, { ok: false, error: "not_found" });
+      }
       // An admin account's password can only be changed by that admin (account page) or, for plain admins, by the owner.
       const t = await S.db("admins?user_id=eq." + enc(target) + "&select=role&limit=1");
       if (!t.ok) return L.send(res, 502, { ok: false });

@@ -50,6 +50,13 @@ create table if not exists public.admins (
   created_at timestamptz not null default now()
 );
 
+-- Per-admin access. permissions: data (dashboard + export), requests, settings, passwords. The owner always has all.
+-- colleges: null = every college, otherwise only responses and people of the listed colleges.
+alter table public.admins add column if not exists permissions text[] not null default '{}';
+alter table public.admins add column if not exists colleges text[];
+alter table public.admins drop constraint if exists admins_permissions_check;
+alter table public.admins add constraint admins_permissions_check check (permissions <@ array['data','requests','settings','passwords']);
+
 -- Edit requests: a submitted response is locked. The user asks, an admin approves, and one approval allows one edit.
 -- pending -> approved -> used   (or pending/approved -> rejected)
 create table if not exists public.edit_requests (

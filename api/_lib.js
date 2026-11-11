@@ -144,14 +144,27 @@ const userId = req => readSigned(req, UCOOKIE, "usr");
 
 // Admin check: valid admin cookie AND the account is still listed in public.admins.
 // Returns { uid, role } or null.
+// Permissions an admin can be given. The owner always has all of them and sees every college.
+const PERMS = ["data", "requests", "settings", "passwords"];
+// Returns { uid, role, permissions, colleges } or null. colleges === null means "all colleges".
 async function adminOf(req) {
   const uid = readSigned(req, COOKIE, "adm");
   if (!uid) return null;
-  const r = await sb().db("admins?user_id=eq." + encodeURIComponent(uid) + "&select=role&limit=1");
+  const r = await sb().db("admins?user_id=eq." + encodeURIComponent(uid) + "&select=role,permissions,colleges&limit=1");
   if (!r.ok) throw new Error("admin lookup failed");
   const row = Array.isArray(r.j) && r.j[0];
-  return row ? { uid, role: row.role } : null;
+  if (!row) return null;
+  const owner = row.role === "owner";
+  return {
+    uid, role: row.role,
+    permissions: owner ? PERMS.slice() : (Array.isArray(row.permissions) ? row.permissions.filter(p => PERMS.includes(p)) : []),
+    colleges: owner || !Array.isArray(row.colleges) ? null : row.colleges
+  };
 }
+const can = (me, perm) => !!me && me.permissions.includes(perm);
+// college of a response (question 7); "" when unknown
+const collegeOf = answers => (answers && typeof answers === "object" && typeof answers["7"] === "string") ? answers["7"] : "";
+const inScope = (me, college) => !me.colleges || me.colleges.includes(college);
 // Is this account an admin? (used to show the admin link to the user)
 async function isAdminUser(uid) {
   const r = await sb().db("admins?user_id=eq." + encodeURIComponent(uid) + "&select=role&limit=1");
@@ -167,5 +180,6 @@ module.exports = {
   QUESTIONS, HEADERS, DEFAULT_MESSAGE, send, cleanText, clientIp, safeEq,
   readRecords, readSettings, writeSettings, isOpen, publicStatus,
   cairoToISO, isoToCairo, makeCookie, clearCookie, adminOf, isAdminUser, sameOrigin, secretOk,
+  PERMS, can, collegeOf, inScope,
   makeUserCookie, clearUserCookie, userId, userSecretOk
 };
