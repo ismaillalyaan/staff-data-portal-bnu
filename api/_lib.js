@@ -141,6 +141,7 @@ const clearCookie = () => clearSigned(COOKIE);
 const makeUserCookie = (uid, maxAgeSec) => makeSigned(UCOOKIE, "usr", uid, maxAgeSec);
 const clearUserCookie = () => clearSigned(UCOOKIE);
 const userId = req => readSigned(req, UCOOKIE, "usr");
+const adminCookieUid = req => readSigned(req, COOKIE, "adm");
 
 // Admin check: valid admin cookie AND the account is still listed in public.admins.
 // Returns { uid, role } or null.
@@ -181,5 +182,5 @@ module.exports = {
   readRecords, readSettings, writeSettings, isOpen, publicStatus,
   cairoToISO, isoToCairo, makeCookie, clearCookie, adminOf, isAdminUser, sameOrigin, secretOk,
   PERMS, can, collegeOf, inScope,
-  makeUserCookie, clearUserCookie, userId, userSecretOk
+  makeUserCookie, clearUserCookie, userId, userSecretOk, adminCookieUid
 };

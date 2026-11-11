@@ -7,6 +7,7 @@ const L = require("./_lib.js");
 const S = require("./_sb.js");
 
 const SESSION_SEC = 7 * 24 * 3600;
+const ADMIN_SESSION_SEC = 2 * 60 * 60; // same lifetime as api/admin.js; re-issued whenever an admin's user session is used
 const buckets = new Map();
 function limited(key, max, windowMs) {
   const now = Date.now();
@@ -38,7 +39,11 @@ async function dropUser(id) {
   await S.db("profiles?id=eq." + enc(id), { method: "DELETE" });
 }
 const pub = p => ({ name: p.full_name, first: S.firstName(p.full_name), email: p.email, nidLast4: p.nid_last4 });
-const startSession = (res, uid, body) => L.send(res, 200, body, { "Set-Cookie": L.makeUserCookie(uid, SESSION_SEC) });
+const startSession = async (res, uid, body) => {
+  const cookies = [L.makeUserCookie(uid, SESSION_SEC)];
+  if (await L.isAdminUser(uid)) cookies.push(L.makeCookie(uid, ADMIN_SESSION_SEC)); // admins are signed in to the panel too
+  return L.send(res, 200, body, { "Set-Cookie": cookies });
+};
 
 async function me(req, res) {
   let status = { open: true, message: "" };
@@ -60,7 +65,10 @@ async function me(req, res) {
     last: last ? { status: last.status, note: last.admin_note || "", decidedAt: last.decided_at } : null
   };
   const admin = !!(await L.isAdminUser(uid));
-  return L.send(res, 200, { user: pub(p), response, status, edit, admin });
+  // An admin who is already signed in does not sign in again for the admin panel:
+  // the admin cookie is issued from the user session (api/admin.js still re-checks public.admins on every request).
+  const extra = admin && L.adminCookieUid(req) !== uid ? { "Set-Cookie": [L.makeCookie(uid, ADMIN_SESSION_SEC)] } : undefined;
+  return L.send(res, 200, { user: pub(p), response, status, edit, admin }, extra);
 }
 
 // User asks for permission to edit a response they already submitted.
@@ -182,7 +190,7 @@ module.exports = async (req, res) => {
     switch (b.action) {
       case "signup": return await signup(req, res, b, ip);
       case "login": return await signin(req, res, b, ip);
-      case "logout": return L.send(res, 200, { ok: true }, { "Set-Cookie": L.clearUserCookie() });
+      case "logout": return L.send(res, 200, { ok: true }, { "Set-Cookie": [L.clearUserCookie(), L.clearCookie()] });
       case "profile": {
         const uid = L.userId(req);
         if (!uid) return L.send(res, 401, { ok: false });
