@@ -346,6 +346,9 @@ details.dd[open] summary{border-color:var(--accent)}
 .adm-lg .nt{max-width:340px;overflow-wrap:anywhere;color:var(--ink)}
 .adm-lg .tm{white-space:nowrap;color:var(--muted)}
 .adm-tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:#fff;margin-bottom:22px}
+.pp-kp{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px}.pp-kp b{display:block;font-size:1.6rem}.pp-kp span{color:var(--muted);font-size:.85rem}
+.pp-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.pp-bar input{flex:1 1 260px}.pp-bar select{flex:0 1 200px}
+.pp-h{border-top:1px solid var(--line);padding:10px 0}.pp-h summary{cursor:pointer;font-weight:700}
 .adm-tbl{width:100%;border-collapse:collapse;font-size:.92rem}
 .adm-tbl th{text-align:right;font-weight:700;font-size:.82rem;color:var(--muted);padding:11px 16px;border-bottom:1px solid var(--line);background:#fafbfb;white-space:nowrap}
 .adm-tbl td{padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -977,7 +980,7 @@ $("#fileIn").onchange=async e=>{
 /* ===== لوحة الإدارة (محمية بكلمة مرور على الخادم) ===== */
 let ADMIN=false, lastPage="";
 const isAdmin=()=>ADMIN, getSession=()=>null;
-const ADM={records:[],settings:null,view:"all",tab:0,requests:[],admins:[],me:null,colleges:[],sec:"home",editId:"",flash:null};
+const ADM={records:[],settings:null,view:"all",tab:0,requests:[],admins:[],people:[],me:null,colleges:[],sec:"home",editId:"",flash:null};
 const REQ_ST={pending:["قيد المراجعة","wait"],approved:["موافق عليه","ok"],rejected:["مرفوض","no"],used:["استُخدم","" ]};
 
 async function api(path,body){
@@ -1029,7 +1032,7 @@ async function adminInit(){
   let r=await api("/api/admin");
   // already signed in: refresh the admin session from the user session instead of asking for a password again
   if(r.status===401&&USER){const m=await api("/api/auth"); if(m.status===200&&m.j&&m.j.admin) r=await api("/api/admin");}
-  if(r.status===200&&r.j&&r.j.ok){ADMIN=true;ADM.records=r.j.records||[];ADM.settings=r.j.settings||null;ADM.requests=r.j.requests||[];ADM.admins=r.j.admins||[];ADM.me=r.j.me||null;ADM.colleges=r.j.colleges||[];ADM.editId="";renderAdmin();return;}
+  if(r.status===200&&r.j&&r.j.ok){ADMIN=true;ADM.records=r.j.records||[];ADM.settings=r.j.settings||null;ADM.requests=r.j.requests||[];ADM.admins=r.j.admins||[];ADM.people=r.j.people||[];ADM.me=r.j.me||null;ADM.colleges=r.j.colleges||[];ADM.editId="";renderAdmin();return;}
   ADMIN=false;
   if(r.status===401){renderLogin();return;}
   if(r.status===503){box.innerHTML='<div class="empty"><h2>لوحة الإدارة غير مفعّلة</h2><p>تحقق من متغيرات البيئة في Vercel: SESSION_SECRET (32 حرفًا على الأقل) ومفاتيح Supabase، ثم أعد النشر.</p></div>';return;}
@@ -1086,6 +1089,7 @@ const pendN=()=>ADM.requests.filter(x=>x.status==="pending").length;
 const ADM_SECS=[
   {k:"home",t:"نظرة عامة",i:"home",d:"ملخص حسابك وصلاحياتك",ok:()=>true,v:()=>secHome()},
   {k:"analytics",t:"التحليلات",i:"chart",d:"مؤشرات الاستجابات عامة ولكل كلية",ok:()=>has("data"),v:()=>secAnalytics()},
+  {k:"people",t:"المستخدمون",i:"users",d:"كل المسجّلين وبيانات كل شخص",ok:()=>has("data"),v:()=>secPeople()},
   {k:"requests",t:"طلبات التعديل",i:"inbox",d:"الموافقة على طلبات تعديل الاستمارات أو رفضها",ok:()=>has("requests"),badge:pendN,v:()=>secRequests()},
   {k:"form",t:"حالة الاستمارة",i:"toggle",d:"فتح الاستمارة وإغلاقها وموعد الإغلاق",ok:()=>has("settings"),v:()=>secForm()},
   {k:"export",t:"تصدير البيانات",i:"download",d:"تنزيل الاستجابات بصيغة CSV أو JSON",ok:()=>has("data"),v:()=>secExport()},
@@ -1144,6 +1148,95 @@ function secAnalytics(){
   $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+'<div id="admDash"></div>';
   renderDash();
 }
+
+/* --- المستخدمون --- */
+const PPL={q:"",f:"all",c:"",page:0,id:"",det:null,busy:false,err:""};
+const PPL_PAGE=25;
+const ppSt=u=>u.submitted?'<span class="chip ok">أرسل الاستمارة</span>':'<span class="chip">لم يرسل</span>';
+const ppRq=u=>u.request==="pending"?'<span class="chip wait">طلب تعديل معلّق</span>':u.request==="approved"?'<span class="chip ok">تعديل مسموح</span>':"";
+function ppFiltered(){
+  const q=PPL.q.trim().toLowerCase(), d=q.replace(/\D/g,"");
+  return ADM.people.filter(u=>{
+    if(PPL.f==="yes"&&!u.submitted) return false;
+    if(PPL.f==="no"&&u.submitted) return false;
+    if(PPL.f==="pending"&&u.request!=="pending") return false;
+    if(PPL.c&&u.college!==PPL.c) return false;
+    if(!q) return true;
+    return (u.name+" "+u.email+" "+u.college).toLowerCase().includes(q)||(d.length>=3&&d.length<=4&&u.last4.endsWith(d));
+  });
+}
+function secPeople(){
+  if(PPL.id){drawPerson();return;}
+  const all=ADM.people, sub=all.filter(u=>u.submitted).length, sc=ADM.me.colleges;
+  const cols=[...new Set(all.map(u=>u.college).filter(Boolean))].sort();
+  $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+
+    `<div class="adm-card"><div class="pp-kp"><div><b>${all.length}</b><span>مستخدم مسجّل</span></div><div><b>${sub}</b><span>أرسلوا الاستمارة</span></div><div><b>${all.length-sub}</b><span>لم يرسلوا بعد</span></div></div>
+    <div class="pp-bar"><input type="search" id="ppQ" placeholder="ابحث بالاسم أو البريد أو الكلية أو آخر 4 أرقام من الرقم القومي" value="${esc(PPL.q)}" aria-label="بحث في المستخدمين">
+    <select id="ppF" aria-label="الحالة"><option value="all">كل الحالات</option><option value="yes">أرسلوا الاستمارة</option><option value="no">لم يرسلوا</option><option value="pending">طلب تعديل معلّق</option></select>
+    <select id="ppC" aria-label="الكلية"><option value="">كل الكليات</option>${cols.map(c=>`<option value="${esc(c)}">${esc(CSHORT(c))}</option>`).join("")}</select></div>
+    <div class="pp-bar"><input type="text" id="ppN" inputmode="numeric" maxlength="14" dir="ltr" placeholder="بحث بالرقم القومي كاملًا (14 رقمًا)"><button class="btn sm" type="button" id="ppNb">بحث</button><button class="btn ghost sm" type="button" id="ppCsv">تنزيل القائمة CSV</button></div>
+    <div class="amsg" id="ppM" role="status"></div><div id="ppList"></div></div>`;
+  $("#ppF").value=PPL.f; $("#ppC").value=PPL.c;
+  $("#ppQ").oninput=e=>{PPL.q=e.target.value;PPL.page=0;drawPeople();};
+  $("#ppF").onchange=e=>{PPL.f=e.target.value;PPL.page=0;drawPeople();};
+  $("#ppC").onchange=e=>{PPL.c=e.target.value;PPL.page=0;drawPeople();};
+  const byNid=async()=>{
+    const n=$("#ppN").value.replace(/\D/g,""); if(n.length!==14){aMsg("ppM","أدخل الرقم القومي كاملًا (14 رقمًا).");return;}
+    aMsg("ppM",""); const r=await post({action:"person",nid:n}); if(!r) return;
+    if(okRes(r)){PPL.id=r.j.person.id;PPL.det=r.j;drawPerson();return;}
+    aMsg("ppM",r.status===404?"لا يوجد مستخدم بهذا الرقم القومي ضمن نطاقك.":r.status===400?"الرقم القومي غير صحيح.":"تعذر البحث. حاول مرة أخرى.");
+  };
+  $("#ppNb").onclick=byNid; $("#ppN").onkeydown=e=>{if(e.key==="Enter")byNid();};
+  $("#ppCsv").onclick=()=>{
+    const Q=v=>{v=String(v==null?"":v); if(/^[=+\-@\t\r]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"';};
+    const rows=[["الاسم","البريد","الكلية","آخر 4 أرقام","تاريخ التسجيل","أرسل الاستمارة","آخر تعديل","طلب التعديل"],...ppFiltered().map(u=>[u.name,u.email,u.college,u.last4,u.createdAt,u.submitted?"نعم":"لا",u.updatedAt||"",u.request])];
+    download("users.csv","text/csv;charset=utf-8","﻿"+rows.map(r=>r.map(Q).join(",")).join("\n"));
+  };
+  drawPeople();
+}
+function drawPeople(){
+  const b=$("#ppList"); if(!b) return;
+  const list=ppFiltered(), pages=Math.max(1,Math.ceil(list.length/PPL_PAGE)); if(PPL.page>=pages) PPL.page=pages-1;
+  const cur=list.slice(PPL.page*PPL_PAGE,(PPL.page+1)*PPL_PAGE);
+  if(!list.length){b.innerHTML='<p class="adm-clear">لا توجد نتائج مطابقة.</p>';return;}
+  b.innerHTML=`<p class="hint">${list.length} نتيجة</p><div class="adm-tw"><table class="adm-tbl"><thead><tr><th>الاسم</th><th>البريد</th><th>الكلية</th><th>الحالة</th><th>التسجيل</th><th></th></tr></thead><tbody>`+
+    cur.map(u=>`<tr><td><b>${esc(u.name||"—")}</b>${u.role?` <span class="chip">${u.role==="owner"?"مالك":"مسؤول"}</span>`:""}</td><td dir="ltr" style="text-align:right">${esc(u.email)}</td><td>${esc(u.college?CSHORT(u.college):"—")}</td><td>${ppSt(u)} ${ppRq(u)}</td><td class="tm">${esc(fmtDate(u.createdAt))}</td><td><button class="btn ghost sm" type="button" data-pp="${esc(u.id)}">عرض البيانات</button></td></tr>`).join("")+
+    `</tbody></table></div>`+(pages>1?`<div class="row" style="margin-top:12px"><button class="btn ghost sm" type="button" id="ppPrev"${PPL.page?"":" disabled"}>السابق</button><span class="hint">صفحة ${PPL.page+1} من ${pages}</span><button class="btn ghost sm" type="button" id="ppNext"${PPL.page<pages-1?"":" disabled"}>التالي</button></div>`:"");
+  $$("[data-pp]",b).forEach(x=>x.onclick=()=>openPerson(x.dataset.pp));
+  const pv=$("#ppPrev"),nx=$("#ppNext"); if(pv)pv.onclick=()=>{PPL.page--;drawPeople();}; if(nx)nx.onclick=()=>{PPL.page++;drawPeople();};
+}
+async function openPerson(id){
+  PPL.id=id; PPL.det=null; PPL.err=""; drawPerson();
+  const r=await post({action:"person",id}); if(!r) return;
+  if(okRes(r)) PPL.det=r.j; else PPL.err=r.status===404?"لم يعد هذا المستخدم متاحًا لك.":"تعذر تحميل البيانات. حاول مرة أخرى.";
+  if(ADM.sec==="people") drawPerson();
+}
+function drawPerson(){
+  const box=$("#admSec"); if(!box) return;
+  const back='<button class="btn ghost sm" type="button" id="ppBack">← رجوع إلى القائمة</button>';
+  const done=()=>{$("#ppBack").onclick=()=>{PPL.id="";PPL.det=null;secPeople();};};
+  if(PPL.err){box.innerHTML=back+`<p class="amsg" style="display:block;margin-top:14px">${esc(PPL.err)}</p>`;done();return;}
+  if(!PPL.det){box.innerHTML=back+'<p class="hint" style="margin-top:14px">جارٍ التحميل…</p>';done();return;}
+  const d=PPL.det, p=d.person, r=d.response;
+  const nid=p.nid?`<span dir="ltr">${esc(p.nid)}</span>`:(p.last4?`<span dir="ltr">••••••••••${esc(p.last4)}</span>`:"—");
+  const hist=r&&r.history.length?`<div class="adm-card"><h3>النسخ السابقة (${r.history.length})</h3><p class="sub">آخر ${r.history.length} نسخ قبل التعديل.</p>`+r.history.map(h=>`<details class="pp-h"><summary>${esc(fmtDate(h.ts))}</summary>${ansHtml(h.a||{})}</details>`).join("")+`</div>`:"";
+  const reqs=d.requests.length?`<div class="adm-card"><h3>طلبات التعديل</h3>`+d.requests.map(x=>{const st=REQ_ST[x.status]||[x.status,""]; return `<div class="adm-rq"><div class="adm-rq-h"><span class="chip ${st[1]}">${esc(st[0])}</span><span class="hint">${esc(fmtDate(x.createdAt))}</span></div><div class="why">${esc(x.reason)}</div>${x.note?`<div class="hint">ملاحظة الإدارة: ${esc(x.note)}</div>`:""}</div>`;}).join("")+`</div>`:"";
+  box.innerHTML=back+`<div class="adm-card" style="margin-top:14px"><h3>${esc(p.name||"—")}</h3><dl class="adm-dl">
+    <div><dt>البريد</dt><dd dir="ltr" style="text-align:right">${esc(p.email)}</dd></div>
+    <div><dt>الرقم القومي</dt><dd>${nid}</dd></div>
+    <div><dt>تاريخ التسجيل</dt><dd>${esc(fmtDate(p.createdAt))}</dd></div>
+    <div><dt>الكلية</dt><dd>${esc(r?(collegeOfA(r.answers)||"—"):"—")}</dd></div>
+    <div><dt>الاستمارة</dt><dd>${r?"أُرسلت "+esc(fmtDate(r.createdAt))+(r.updatedAt!==r.createdAt?" · آخر تعديل "+esc(fmtDate(r.updatedAt)):""):"لم يرسل بعد"}</dd></div></dl>
+    ${r?'<div class="row" style="margin-top:14px"><button class="btn sm" type="button" id="ppDlC">تنزيل CSV</button><button class="btn ghost sm" type="button" id="ppDlJ">تنزيل JSON</button></div>':""}</div>`+
+    (r?`<div class="adm-card"><h3>الإجابات</h3>${ansHtml(r.answers)}</div>`:'<div class="adm-note">لم يُرسل هذا المستخدم الاستمارة بعد.</div>')+hist+reqs;
+  done();
+  if(r){
+    const rec=[{id:p.id,ts:r.updatedAt,a:Object.assign({},r.answers)}], nm=(p.name||"user").replace(/[^\p{L}\p{N}]+/gu,"_").slice(0,40)||"user";
+    $("#ppDlC").onclick=()=>download("user-"+nm+".csv","text/csv;charset=utf-8",csvOf(rec));
+    $("#ppDlJ").onclick=()=>download("user-"+nm+".json","application/json",JSON.stringify({person:p,questions:labelMap(),answers:r.answers,history:r.history,requests:d.requests},null,2));
+  }
+}
+const collegeOfA=a=>a&&a["7"]||"";
 
 /* --- طلبات التعديل --- */
 function secRequests(){
@@ -1253,7 +1346,7 @@ const LOG_CATS=[["","كل الأنشطة"],["accounts","الحسابات"],["for
 const LOG_L={signup:["أنشأ حسابًا","ok"],login:["سجّل الدخول",""],login_failed:["محاولة دخول فاشلة","no"],logout:["سجّل الخروج",""],profile_update:["عدّل بيانات حسابه",""],
   form_ack:["اطّلع على تنبيه الإرسال لمرة واحدة",""],form_submit:["أرسل الاستمارة","ok"],form_edit:["عدّل استمارته المرسلة","ok"],
   edit_request:["أرسل طلب تعديل","wait"],edit_cancel:["ألغى طلب التعديل",""],edit_decide:["قرّر في طلب تعديل",""],
-  admin_login:["دخل لوحة الإدارة",""],admin_login_failed:["محاولة دخول فاشلة للوحة الإدارة","no"],admin_logout:["خرج من لوحة الإدارة",""],
+  user_view:["اطّلع على بيانات مستخدم",""],admin_login:["دخل لوحة الإدارة",""],admin_login_failed:["محاولة دخول فاشلة للوحة الإدارة","no"],admin_logout:["خرج من لوحة الإدارة",""],
   settings_update:["غيّر حالة الاستمارة",""],admin_add:["أضاف مسؤولًا","ok"],admin_update:["عدّل صلاحيات مسؤول",""],admin_remove:["أزال مسؤولًا","no"],password_reset:["أعاد تعيين كلمة مرور مستخدم",""]};
 const logWhen=t=>{try{return new Date(t).toLocaleString("ar-EG",{dateStyle:"medium",timeStyle:"medium",timeZone:"Africa/Cairo"});}catch(e){return String(t||"");}};
 const logWho=p=>p&&(p.name||p.email)?`<div class="who"><b>${esc(p.name||p.email)}</b>${p.name&&p.email?`<small>${esc(p.email)}</small>`:""}</div>`:"—";

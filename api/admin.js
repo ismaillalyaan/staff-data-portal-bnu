@@ -102,6 +102,42 @@ async function scopedRecords(me) {
   return me.colleges ? all.filter(x => me.colleges.includes(L.collegeOf(x.a))) : all;
 }
 
+// All registered users with their submission status, limited to the admin's colleges
+// (a college-scoped admin only sees people whose response is in scope; users without a response need all-college access).
+async function listPeople(me) {
+  const rows = async (table, sel, order) => {
+    const out = [];
+    for (let off = 0; off < 5000; off += 1000) {
+      const r = await S.db(table + "?select=" + sel + "&order=" + order + "&limit=1000&offset=" + off);
+      if (!r.ok) throw new Error(table + " read failed");
+      out.push(...r.j);
+      if (r.j.length < 1000) break;
+    }
+    return out;
+  };
+  const [profiles, resps, reqs, adms] = await Promise.all([
+    rows("profiles", "id,full_name,email,nid_last4,created_at", "created_at.desc"),
+    rows("responses", "user_id,answers,created_at,updated_at", "updated_at.desc"),
+    rows("edit_requests", "user_id,status,created_at", "created_at.desc"),
+    rows("admins", "user_id,role", "created_at.asc")
+  ]);
+  const rm = {}, qm = {}, am = {};
+  for (const x of resps) rm[x.user_id] = x;
+  for (const x of reqs) if (!qm[x.user_id]) qm[x.user_id] = x.status;
+  for (const x of adms) am[x.user_id] = x.role;
+  const out = [];
+  for (const p of profiles) {
+    const r = rm[p.id], college = r ? L.collegeOf(r.answers) : "";
+    if (me.colleges && !(r && me.colleges.includes(college))) continue;
+    out.push({
+      id: p.id, name: p.full_name || "", email: p.email || "", last4: p.nid_last4 || "", createdAt: p.created_at,
+      submitted: !!r, college, submittedAt: r ? r.created_at : null, updatedAt: r ? r.updated_at : null,
+      request: qm[p.id] || "", role: am[p.id] || ""
+    });
+  }
+  return out;
+}
+
 module.exports = async (req, res) => {
   if (!L.secretOk() || !S.configured()) return L.send(res, 503, { ok: false, error: "not_configured" });
 
@@ -110,16 +146,17 @@ module.exports = async (req, res) => {
       const me = await L.adminOf(req);
       if (!me) return L.send(res, 401, { ok: false });
       const owner = me.role === "owner";
-      const [settings, records, requests, admins, mine] = await Promise.all([
+      const [settings, records, requests, admins, mine, people] = await Promise.all([
         L.can(me, "settings") ? L.readSettings(true) : null,
         L.can(me, "data") ? scopedRecords(me) : [],
         L.can(me, "requests") ? listRequests(me) : [],
         owner ? listAdmins() : [],
-        peopleById([me.uid])
+        peopleById([me.uid]),
+        L.can(me, "data") ? listPeople(me) : []
       ]);
       return L.send(res, 200, {
         ok: true, me: meView(me, mine[me.uid]), colleges: COLLEGES,
-        settings: settings ? view(settings) : null, records, requests, admins
+        settings: settings ? view(settings) : null, records, requests, admins, people
       });
     }
 
@@ -277,6 +314,38 @@ module.exports = async (req, res) => {
       return L.send(res, 200, { ok: true });
     }
 
+    /* ---- one person in full (data permission, college scope): by user id or by the 14-digit national ID ---- */
+    if (b.action === "person") {
+      if (!L.can(me, "data")) return L.send(res, 403, { ok: false, error: "forbidden" });
+      let uid = String(b.id || "");
+      if (!UUID.test(uid)) {
+        const nid = String(b.nid || "").replace(/\D/g, "");
+        if (!S.validNid(nid)) return L.send(res, 400, { ok: false, error: "bad_nid" });
+        const f = await S.db("profiles?nid_hash=eq." + enc(S.nidHash(nid)) + "&select=id&limit=1");
+        if (!f.ok) return L.send(res, 502, { ok: false });
+        if (!f.j[0]) return L.send(res, 404, { ok: false, error: "not_found" });
+        uid = f.j[0].id;
+      }
+      const [pr, rr, qr, ar] = await Promise.all([
+        S.db("profiles?id=eq." + enc(uid) + "&select=id,full_name,email,nid_last4,nid_enc,created_at&limit=1"),
+        S.db("responses?user_id=eq." + enc(uid) + "&select=answers,history,created_at,updated_at&limit=1"),
+        S.db("edit_requests?user_id=eq." + enc(uid) + "&select=id,reason,status,admin_note,created_at,decided_at,used_at&order=created_at.desc&limit=50"),
+        S.db("admins?user_id=eq." + enc(uid) + "&select=role&limit=1")
+      ]);
+      if (!pr.ok || !rr.ok || !qr.ok || !ar.ok) return L.send(res, 502, { ok: false });
+      const p = pr.j[0], r = rr.j[0];
+      if (!p || (me.colleges && !(r && L.inScope(me, L.collegeOf(r.answers))))) return L.send(res, 404, { ok: false, error: "not_found" });
+      let nid = "";
+      try { nid = p.nid_enc ? S.nidDec(p.nid_enc) || "" : ""; } catch (e) {}
+      await L.logEvent(req, { uid: me.uid, action: "user_view", target: p.id, targetEmail: p.email });
+      return L.send(res, 200, {
+        ok: true,
+        person: { id: p.id, name: p.full_name || "", email: p.email || "", nid, last4: p.nid_last4 || "", createdAt: p.created_at, role: (ar.j[0] || {}).role || "" },
+        response: r ? { answers: r.answers || {}, history: Array.isArray(r.history) ? r.history : [], createdAt: r.created_at, updatedAt: r.updated_at } : null,
+        requests: qr.j.map(x => ({ id: x.id, reason: x.reason, status: x.status, note: x.admin_note || "", createdAt: x.created_at, decidedAt: x.decided_at, usedAt: x.used_at }))
+      });
+    }
+
     /* ---- activity log (owner only): newest first, optional category and e-mail search, paged by id ---- */
     if (b.action === "logs") {
       if (!owner) return L.send(res, 403, { ok: false, error: "forbidden" });
@@ -284,7 +353,7 @@ module.exports = async (req, res) => {
         accounts: ["signup", "login", "login_failed", "logout", "profile_update"],
         form: ["form_ack", "form_submit", "form_edit"],
         requests: ["edit_request", "edit_cancel", "edit_decide"],
-        admin: ["admin_login", "admin_login_failed", "admin_logout", "settings_update", "admin_add", "admin_update", "admin_remove", "password_reset"]
+        admin: ["user_view", "admin_login", "admin_login_failed", "admin_logout", "settings_update", "admin_add", "admin_update", "admin_remove", "password_reset"]
       };
       const PAGE = 100;
       let path = "activity_logs?select=id,created_at,actor_id,actor_email,action,target_id,target_email,detail,ip&order=id.desc&limit=" + (PAGE + 1);
