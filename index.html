@@ -348,6 +348,8 @@ details.dd[open] summary{border-color:var(--accent)}
 .adm-tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:#fff;margin-bottom:22px}
 .pp-kp{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px}.pp-kp b{display:block;font-size:1.6rem}.pp-kp span{color:var(--muted);font-size:.85rem}
 .pp-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.pp-bar input{flex:1 1 260px}.pp-bar select{flex:0 1 200px}
+.pp-chips{display:flex;gap:8px;flex-wrap:wrap}.pp-ck{list-style:none;padding:0;margin:14px 0 0}.pp-ck li{padding:4px 0}.pp-ck .y{color:var(--ok,#1a7f4b);font-weight:700}.pp-ck .n{color:var(--muted)}
+.pp-tl{list-style:none;padding:0;margin:0;border-right:2px solid var(--line)}.pp-tl li{padding:6px 14px;display:flex;gap:12px}.pp-tl b{min-width:90px}
 .pp-h{border-top:1px solid var(--line);padding:10px 0}.pp-h summary{cursor:pointer;font-weight:700}
 .adm-tbl{width:100%;border-collapse:collapse;font-size:.92rem}
 .adm-tbl th{text-align:right;font-weight:700;font-size:.82rem;color:var(--muted);padding:11px 16px;border-bottom:1px solid var(--line);background:#fafbfb;white-space:nowrap}
@@ -1242,20 +1244,24 @@ function drawPerson(){
 }
 
 function ppAnalysis(a){
-  const recs=mapRows(), all=hours(recs), col=a["7"]||"", inCol=recs.filter(r=>r.a.q7===col), cH=hours(inCol);
-  const me=+a["27"]>0?+a["27"]:null, rd=x=>Math.round(x*10)/10;
-  const ACH=[["أبحاث منشورة","q48","48"],["مشروعات بحثية أو تطبيقية","q51","51"],["دعم من جهة داخل/خارج الجامعة","q55","55"],["براءات اختراع","q57","57"],["تفرغ علمي","q41c","41c"],["يدرس حاليًّا","q35","35"]];
-  let hh="";
-  if(me!=null){
-    const rank=1+all.filter(x=>x>me).length, crank=1+cH.filter(x=>x>me).length;
-    const bk=[["1–6",1,6],["7–12",7,12],["13–18",13,18],["19–24",19,24],["25–35",25,35],["36+",36,1e9]].map(([l,x,y])=>[l,all.filter(v=>v>=x&&v<=y).length,me>=x&&me<=y]);
-    hh=`<div class="pp-kp"><div><b>${me}</b><span>ساعة أسبوعيًّا</span></div><div><b>${all.length?rd(mean(all)):"—"}</b><span>متوسط كل المشاركين</span></div><div><b>${cH.length?rd(mean(cH)):"—"}</b><span>متوسط كليته</span></div><div><b>${rank}/${all.length}</b><span>ترتيبه في الجامعة (الأعلى عبئًا أولًا)</span></div><div><b>${crank}/${cH.length}</b><span>ترتيبه في كليته</span></div></div>
-    <div class="grid2"><div class="fig"><h3>مقارنة الساعات</h3><p class="sub">ساعة أسبوعيًّا</p>${hbars([["هو",me],["متوسط كليته",rd(mean(cH))],["متوسط الجميع",rd(mean(all))]].sort((x,y)=>y[1]-x[1]),0,3)}</div>
-    <div class="fig"><h3>موقعه بين الجميع</h3><p class="sub">عدد الأفراد في كل فئة ساعات (الفئة الملوّنة فئته)</p>${cols(bk.map(b=>[b[0],b[1]]),bk.findIndex(b=>b[2]))}</div></div>`;
-  } else hh='<p class="hint">لم يُسجّل عدد ساعات العبء التدريسي.</p>';
-  const rows=ACH.map(([l,k,id])=>{const yes=a[id]==="نعم", c=inCol.filter(r=>r.a[k]==="نعم").length; return [l,yes,inCol.length?Math.round(c/inCol.length*100):0];});
-  const ach=`<div class="fig" style="margin-top:18px"><h3>الإنجازات مقارنة بكليته</h3><p class="sub">النسبة = من لديهم البند من زملائه في الكلية</p>`+rows.map(r=>`<div class="hr"><div class="hh"><span class="hl">${esc(r[0])}</span><span class="hv"><span class="chip ${r[1]?"ok":""}">${r[1]?"نعم":"لا"}</span><em>${r[2]}% من الكلية</em></span></div><span class="ht"><i class="${r[1]?"top":""}" style="width:${Math.max(2,r[2])}%"></i></span></div>`).join("")+`</div>`;
-  return `<div class="adm-card"><h3>تحليل الفرد</h3>${hh}${ach}</div>`;
+  const V=k=>a[k]==null?"":a[k], L=k=>Array.isArray(a[k])?a[k]:[], yes=k=>a[k]==="نعم";
+  const hrs=+V("27")>0?+V("27"):null;
+  const courses=String(V("26")).split(/\n+/).map(x=>x.trim()).filter(Boolean).length;
+  const yr=new Date().getFullYear(), d22=V("22")?new Date(V("22")):null, gy=+V("30");
+  const svc=d22&&!isNaN(d22)?Math.max(0,Math.round((Date.now()-d22)/31557600000*10)/10):null;
+  const since=gy>1950&&gy<=yr?yr-gy:null;
+  const ACH=[["أبحاث منشورة","48"],["مشروعات بحثية أو تطبيقية","51"],["دعم من جهة داخل/خارج الجامعة","55"],["براءات اختراع","57"],["تفرغ علمي","41c"],["يدرس حاليًّا","35"]];
+  const got=ACH.filter(x=>yes(x[1])), miss=ACH.length-got.length;
+  const kp=[[hrs==null?"—":hrs,"ساعات أسبوعيًّا"],[courses||"—","مقرر يدرّسه"],[hrs&&courses?N1(hrs/courses):"—","ساعات لكل مقرر"],[svc==null?"—":svc,"سنوات الخدمة بالجامعة"],[since==null?"—":since,"سنوات منذ التخرج"],[V("49")||"—","الأبحاث المنشورة"]];
+  const tl=[[V("30"),"التخرج"+(V("28")?" — "+V("28"):"")],[V("34b")?String(V("34b")).slice(0,10):"",(V("34")?V("34"):"أعلى درجة")+(V("34c")?" — "+V("34c"):"")],[V("22")?String(V("22")).slice(0,10):"","بدء العمل بالجامعة"],[V("41d")?String(V("41d")).slice(0,10):"","بداية التفرغ العلمي"],[V("38")?String(V("38")).slice(0,10):"","بدء الدراسة ("+(V("36")||"درجة")+")"],[V("41b")?String(V("41b")).slice(0,10):"","المناقشة المتوقعة"]].filter(x=>x[0]).sort((x,y)=>String(x[0])<String(y[0])?-1:1);
+  const chips=(t,arr)=>arr.length?`<div class="af"><label>${t}</label><div class="pp-chips">${arr.map(x=>`<span class="chip">${esc(x)}</span>`).join("")}</div></div>`:"";
+  return `<div class="adm-card"><h3>تحليل الفرد</h3><p class="sub">من بياناته فقط.</p>
+    <div class="pp-kp">${kp.map(k=>`<div><b>${esc(String(k[0]))}</b><span>${k[1]}</span></div>`).join("")}</div>
+    <div class="grid2"><div class="fig"><h3>الإنجازات</h3><p class="sub">${got.length} من ${ACH.length} بنود</p>${donut([["لديه",got.length],["ليس لديه",miss]].filter(e=>e[1]>0))}
+    <ul class="pp-ck">${ACH.map(x=>`<li class="${yes(x[1])?"y":"n"}">${yes(x[1])?"✓":"✗"} ${esc(x[0])}</li>`).join("")}</ul></div>
+    <div class="fig"><h3>المسار الزمني</h3><p class="sub">أهم التواريخ المسجّلة</p>${tl.length?`<ol class="pp-tl">${tl.map(x=>`<li><b dir="ltr">${esc(String(x[0]))}</b><span>${esc(x[1])}</span></li>`).join("")}</ol>`:'<div class="none">لا توجد تواريخ مسجّلة.</div>'}</div></div>
+    ${chips("المهارات",L("64"))}${chips("مجالات التدريب المطلوبة",L("66"))}${chips("مجالات المشاركة المفضلة",L("69"))}
+    ${V("68")?`<p class="hint">الرغبة في برامج الدراسات العليا: <b>${esc(V("68"))}</b></p>`:""}</div>`;
 }
 const collegeOfA=a=>a&&a["7"]||"";
 
