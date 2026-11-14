@@ -131,7 +131,7 @@ async function listPeople(me) {
     if (me.colleges && !(r && me.colleges.includes(college))) continue;
     out.push({
       id: p.id, name: p.full_name || "", email: p.email || "", last4: p.nid_last4 || "", createdAt: p.created_at,
-      submitted: !!r, college, submittedAt: r ? r.created_at : null, updatedAt: r ? r.updated_at : null,
+      submitted: !!r, college, hours: r ? (+r.answers["27"] > 0 ? +r.answers["27"] : null) : null, submittedAt: r ? r.created_at : null, updatedAt: r ? r.updated_at : null,
       request: qm[p.id] || "", role: am[p.id] || ""
     });
   }

@@ -814,8 +814,8 @@ function donut(ent){
   return `<div class="dn"><svg viewBox="0 0 120 120" role="img" aria-label="رسم دائري">${arcs}<text x="60" y="58" text-anchor="middle" font-size="20" font-weight="600">${tot}</text><text x="60" y="74" text-anchor="middle" font-size="8" style="fill:var(--muted)">استجابة</text></svg>
   <ul class="lg">${ent.map(([l,n],i)=>`<li><i style="background:var(--c${i%6+1})"></i>${esc(l)}<span class="hv"><b>${n}</b><em>${P(n/tot)}</em></span></li>`).join("")}</ul></div>`;
 }
-function cols(ent){
-  const max=Math.max(1,...ent.map(e=>e[1])), top=ent.reduce((b,e,i)=>e[1]>ent[b][1]?i:b,0);
+function cols(ent,hi){
+  const max=Math.max(1,...ent.map(e=>e[1])), top=hi!=null?hi:ent.reduce((b,e,i)=>e[1]>ent[b][1]?i:b,0);
   return `<div class="cols">${ent.map(([l,n],i)=>`<div class="col" title="${esc(l)}: ${n}"><b>${n}</b><i class="${i===top&&n>0?"top":""}" style="height:${n/max*82}%"></i></div>`).join("")}</div><div class="collab">${ent.map(e=>`<span>${esc(e[0])}</span>`).join("")}</div>`;
 }
 const fig=(t,s,body,cls="")=>`<figure class="fig ${cls}" style="margin:0"><h3>${t}</h3><p class="sub">${s}</p>${body}</figure>`;
@@ -1150,7 +1150,7 @@ function secAnalytics(){
 }
 
 /* --- المستخدمون --- */
-const PPL={q:"",f:"all",c:"",page:0,id:"",det:null,busy:false,err:""};
+const PPL={q:"",f:"all",s:"new",c:"",page:0,id:"",det:null,busy:false,err:""};
 const PPL_PAGE=25;
 const ppSt=u=>u.submitted?'<span class="chip ok">أرسل الاستمارة</span>':'<span class="chip">لم يرسل</span>';
 const ppRq=u=>u.request==="pending"?'<span class="chip wait">طلب تعديل معلّق</span>':u.request==="approved"?'<span class="chip ok">تعديل مسموح</span>':"";
@@ -1173,12 +1173,14 @@ function secPeople(){
     `<div class="adm-card"><div class="pp-kp"><div><b>${all.length}</b><span>مستخدم مسجّل</span></div><div><b>${sub}</b><span>أرسلوا الاستمارة</span></div><div><b>${all.length-sub}</b><span>لم يرسلوا بعد</span></div></div>
     <div class="pp-bar"><input type="search" id="ppQ" placeholder="ابحث بالاسم أو البريد أو الكلية أو آخر 4 أرقام من الرقم القومي" value="${esc(PPL.q)}" aria-label="بحث في المستخدمين">
     <select id="ppF" aria-label="الحالة"><option value="all">كل الحالات</option><option value="yes">أرسلوا الاستمارة</option><option value="no">لم يرسلوا</option><option value="pending">طلب تعديل معلّق</option></select>
+    <select id="ppS" aria-label="الترتيب"><option value="new">الأحدث تسجيلًا</option><option value="name">الاسم</option><option value="hrsD">الساعات الأكثر</option><option value="hrsA">الساعات الأقل</option></select>
     <select id="ppC" aria-label="الكلية"><option value="">كل الكليات</option>${cols.map(c=>`<option value="${esc(c)}">${esc(CSHORT(c))}</option>`).join("")}</select></div>
     <div class="pp-bar"><input type="text" id="ppN" inputmode="numeric" maxlength="14" dir="ltr" placeholder="بحث بالرقم القومي كاملًا (14 رقمًا)"><button class="btn sm" type="button" id="ppNb">بحث</button><button class="btn ghost sm" type="button" id="ppCsv">تنزيل القائمة CSV</button></div>
     <div class="amsg" id="ppM" role="status"></div><div id="ppList"></div></div>`;
-  $("#ppF").value=PPL.f; $("#ppC").value=PPL.c;
+  $("#ppF").value=PPL.f; $("#ppS").value=PPL.s; $("#ppC").value=PPL.c;
   $("#ppQ").oninput=e=>{PPL.q=e.target.value;PPL.page=0;drawPeople();};
   $("#ppF").onchange=e=>{PPL.f=e.target.value;PPL.page=0;drawPeople();};
+  $("#ppS").onchange=e=>{PPL.s=e.target.value;PPL.page=0;drawPeople();};
   $("#ppC").onchange=e=>{PPL.c=e.target.value;PPL.page=0;drawPeople();};
   const byNid=async()=>{
     const n=$("#ppN").value.replace(/\D/g,""); if(n.length!==14){aMsg("ppM","أدخل الرقم القومي كاملًا (14 رقمًا).");return;}
@@ -1189,18 +1191,20 @@ function secPeople(){
   $("#ppNb").onclick=byNid; $("#ppN").onkeydown=e=>{if(e.key==="Enter")byNid();};
   $("#ppCsv").onclick=()=>{
     const Q=v=>{v=String(v==null?"":v); if(/^[=+\-@\t\r]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"';};
-    const rows=[["الاسم","البريد","الكلية","آخر 4 أرقام","تاريخ التسجيل","أرسل الاستمارة","آخر تعديل","طلب التعديل"],...ppFiltered().map(u=>[u.name,u.email,u.college,u.last4,u.createdAt,u.submitted?"نعم":"لا",u.updatedAt||"",u.request])];
+    const rows=[["الاسم","البريد","الكلية","ساعات أسبوعيًّا","آخر 4 أرقام","تاريخ التسجيل","أرسل الاستمارة","آخر تعديل","طلب التعديل"],...ppFiltered().map(u=>[u.name,u.email,u.college,u.hours==null?"":u.hours,u.last4,u.createdAt,u.submitted?"نعم":"لا",u.updatedAt||"",u.request])];
     download("users.csv","text/csv;charset=utf-8","﻿"+rows.map(r=>r.map(Q).join(",")).join("\n"));
   };
   drawPeople();
 }
 function drawPeople(){
   const b=$("#ppList"); if(!b) return;
-  const list=ppFiltered(), pages=Math.max(1,Math.ceil(list.length/PPL_PAGE)); if(PPL.page>=pages) PPL.page=pages-1;
+  const list=ppFiltered(), hv=u=>u.hours==null?(PPL.s==='hrsA'?1e9:-1):u.hours;
+  if(PPL.s==='name') list.sort((a,b)=>a.name.localeCompare(b.name,'ar')); else if(PPL.s==='hrsD') list.sort((a,b)=>hv(b)-hv(a)); else if(PPL.s==='hrsA') list.sort((a,b)=>hv(a)-hv(b));
+  const pages=Math.max(1,Math.ceil(list.length/PPL_PAGE)); if(PPL.page>=pages) PPL.page=pages-1;
   const cur=list.slice(PPL.page*PPL_PAGE,(PPL.page+1)*PPL_PAGE);
   if(!list.length){b.innerHTML='<p class="adm-clear">لا توجد نتائج مطابقة.</p>';return;}
-  b.innerHTML=`<p class="hint">${list.length} نتيجة</p><div class="adm-tw"><table class="adm-tbl"><thead><tr><th>الاسم</th><th>البريد</th><th>الكلية</th><th>الحالة</th><th>التسجيل</th><th></th></tr></thead><tbody>`+
-    cur.map(u=>`<tr><td><b>${esc(u.name||"—")}</b>${u.role?` <span class="chip">${u.role==="owner"?"مالك":"مسؤول"}</span>`:""}</td><td dir="ltr" style="text-align:right">${esc(u.email)}</td><td>${esc(u.college?CSHORT(u.college):"—")}</td><td>${ppSt(u)} ${ppRq(u)}</td><td class="tm">${esc(fmtDate(u.createdAt))}</td><td><button class="btn ghost sm" type="button" data-pp="${esc(u.id)}">عرض البيانات</button></td></tr>`).join("")+
+  b.innerHTML=`<p class="hint">${list.length} نتيجة</p><div class="adm-tw"><table class="adm-tbl"><thead><tr><th>الاسم</th><th>البريد</th><th>الكلية</th><th class="num">ساعات/أسبوع</th><th>الحالة</th><th>التسجيل</th><th></th></tr></thead><tbody>`+
+    cur.map(u=>`<tr><td><b>${esc(u.name||"—")}</b>${u.role?` <span class="chip">${u.role==="owner"?"مالك":"مسؤول"}</span>`:""}</td><td dir="ltr" style="text-align:right">${esc(u.email)}</td><td>${esc(u.college?CSHORT(u.college):"—")}</td><td class="num">${u.hours==null?"—":u.hours}</td><td>${ppSt(u)} ${ppRq(u)}</td><td class="tm">${esc(fmtDate(u.createdAt))}</td><td><button class="btn ghost sm" type="button" data-pp="${esc(u.id)}">عرض البيانات</button></td></tr>`).join("")+
     `</tbody></table></div>`+(pages>1?`<div class="row" style="margin-top:12px"><button class="btn ghost sm" type="button" id="ppPrev"${PPL.page?"":" disabled"}>السابق</button><span class="hint">صفحة ${PPL.page+1} من ${pages}</span><button class="btn ghost sm" type="button" id="ppNext"${PPL.page<pages-1?"":" disabled"}>التالي</button></div>`:"");
   $$("[data-pp]",b).forEach(x=>x.onclick=()=>openPerson(x.dataset.pp));
   const pv=$("#ppPrev"),nx=$("#ppNext"); if(pv)pv.onclick=()=>{PPL.page--;drawPeople();}; if(nx)nx.onclick=()=>{PPL.page++;drawPeople();};
@@ -1228,13 +1232,30 @@ function drawPerson(){
     <div><dt>الكلية</dt><dd>${esc(r?(collegeOfA(r.answers)||"—"):"—")}</dd></div>
     <div><dt>الاستمارة</dt><dd>${r?"أُرسلت "+esc(fmtDate(r.createdAt))+(r.updatedAt!==r.createdAt?" · آخر تعديل "+esc(fmtDate(r.updatedAt)):""):"لم يرسل بعد"}</dd></div></dl>
     ${r?'<div class="row" style="margin-top:14px"><button class="btn sm" type="button" id="ppDlC">تنزيل CSV</button><button class="btn ghost sm" type="button" id="ppDlJ">تنزيل JSON</button></div>':""}</div>`+
-    (r?`<div class="adm-card"><h3>الإجابات</h3>${ansHtml(r.answers)}</div>`:'<div class="adm-note">لم يُرسل هذا المستخدم الاستمارة بعد.</div>')+hist+reqs;
+    (r?ppAnalysis(r.answers):"")+(r?`<div class="adm-card"><h3>الإجابات</h3>${ansHtml(r.answers)}</div>`:'<div class="adm-note">لم يُرسل هذا المستخدم الاستمارة بعد.</div>')+hist+reqs;
   done();
   if(r){
     const rec=[{id:p.id,ts:r.updatedAt,a:Object.assign({},r.answers)}], nm=(p.name||"user").replace(/[^\p{L}\p{N}]+/gu,"_").slice(0,40)||"user";
     $("#ppDlC").onclick=()=>download("user-"+nm+".csv","text/csv;charset=utf-8",csvOf(rec));
     $("#ppDlJ").onclick=()=>download("user-"+nm+".json","application/json",JSON.stringify({person:p,questions:labelMap(),answers:r.answers,history:r.history,requests:d.requests},null,2));
   }
+}
+
+function ppAnalysis(a){
+  const recs=mapRows(), all=hours(recs), col=a["7"]||"", inCol=recs.filter(r=>r.a.q7===col), cH=hours(inCol);
+  const me=+a["27"]>0?+a["27"]:null, rd=x=>Math.round(x*10)/10;
+  const ACH=[["أبحاث منشورة","q48","48"],["مشروعات بحثية أو تطبيقية","q51","51"],["دعم من جهة داخل/خارج الجامعة","q55","55"],["براءات اختراع","q57","57"],["تفرغ علمي","q41c","41c"],["يدرس حاليًّا","q35","35"]];
+  let hh="";
+  if(me!=null){
+    const rank=1+all.filter(x=>x>me).length, crank=1+cH.filter(x=>x>me).length;
+    const bk=[["1–6",1,6],["7–12",7,12],["13–18",13,18],["19–24",19,24],["25–35",25,35],["36+",36,1e9]].map(([l,x,y])=>[l,all.filter(v=>v>=x&&v<=y).length,me>=x&&me<=y]);
+    hh=`<div class="pp-kp"><div><b>${me}</b><span>ساعة أسبوعيًّا</span></div><div><b>${all.length?rd(mean(all)):"—"}</b><span>متوسط كل المشاركين</span></div><div><b>${cH.length?rd(mean(cH)):"—"}</b><span>متوسط كليته</span></div><div><b>${rank}/${all.length}</b><span>ترتيبه في الجامعة (الأعلى عبئًا أولًا)</span></div><div><b>${crank}/${cH.length}</b><span>ترتيبه في كليته</span></div></div>
+    <div class="grid2"><div class="fig"><h3>مقارنة الساعات</h3><p class="sub">ساعة أسبوعيًّا</p>${hbars([["هو",me],["متوسط كليته",rd(mean(cH))],["متوسط الجميع",rd(mean(all))]].sort((x,y)=>y[1]-x[1]),0,3)}</div>
+    <div class="fig"><h3>موقعه بين الجميع</h3><p class="sub">عدد الأفراد في كل فئة ساعات (الفئة الملوّنة فئته)</p>${cols(bk.map(b=>[b[0],b[1]]),bk.findIndex(b=>b[2]))}</div></div>`;
+  } else hh='<p class="hint">لم يُسجّل عدد ساعات العبء التدريسي.</p>';
+  const rows=ACH.map(([l,k,id])=>{const yes=a[id]==="نعم", c=inCol.filter(r=>r.a[k]==="نعم").length; return [l,yes,inCol.length?Math.round(c/inCol.length*100):0];});
+  const ach=`<div class="fig" style="margin-top:18px"><h3>الإنجازات مقارنة بكليته</h3><p class="sub">النسبة = من لديهم البند من زملائه في الكلية</p>`+rows.map(r=>`<div class="hr"><div class="hh"><span class="hl">${esc(r[0])}</span><span class="hv"><span class="chip ${r[1]?"ok":""}">${r[1]?"نعم":"لا"}</span><em>${r[2]}% من الكلية</em></span></div><span class="ht"><i class="${r[1]?"top":""}" style="width:${Math.max(2,r[2])}%"></i></span></div>`).join("")+`</div>`;
+  return `<div class="adm-card"><h3>تحليل الفرد</h3>${hh}${ach}</div>`;
 }
 const collegeOfA=a=>a&&a["7"]||"";
 
