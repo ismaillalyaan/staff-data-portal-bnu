@@ -1169,10 +1169,10 @@ function ppFiltered(){
 }
 function secPeople(){
   if(PPL.id){drawPerson();return;}
-  const all=ADM.people, sub=all.filter(u=>u.submitted).length, sc=ADM.me.colleges;
+  const all=ADM.people, nonAdm=all.filter(u=>!u.role), sub=nonAdm.filter(u=>u.submitted).length, admN=all.length-nonAdm.length, sc=ADM.me.colleges;
   const cols=[...new Set(all.map(u=>u.college).filter(Boolean))].sort();
   $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+
-    `<div class="adm-card"><div class="pp-kp"><div><b>${all.length}</b><span>مستخدم مسجّل</span></div><div><b>${sub}</b><span>أرسلوا الاستمارة</span></div><div><b>${all.length-sub}</b><span>لم يرسلوا بعد</span></div></div>
+    `<div class="adm-card"><div class="pp-kp"><div><b>${nonAdm.length}</b><span>مستخدم مسجّل (بدون المسؤولين)</span></div><div><b>${sub}</b><span>أرسلوا الاستمارة</span></div><div><b>${nonAdm.length-sub}</b><span>لم يرسلوا بعد</span></div>${admN?`<div><b>${admN}</b><span>مسؤول</span></div>`:""}</div>
     <div class="pp-bar"><input type="search" id="ppQ" placeholder="ابحث بالاسم أو البريد أو الكلية أو آخر 4 أرقام من الرقم القومي" value="${esc(PPL.q)}" aria-label="بحث في المستخدمين">
     <select id="ppF" aria-label="الحالة"><option value="all">كل الحالات</option><option value="yes">أرسلوا الاستمارة</option><option value="no">لم يرسلوا</option><option value="pending">طلب تعديل معلّق</option></select>
     <select id="ppS" aria-label="الترتيب"><option value="new">الأحدث تسجيلًا</option><option value="name">الاسم</option><option value="hrsD">الساعات الأكثر</option><option value="hrsA">الساعات الأقل</option></select>
