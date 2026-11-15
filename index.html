@@ -347,7 +347,7 @@ details.dd[open] summary{border-color:var(--accent)}
 .adm-lg .tm{white-space:nowrap;color:var(--muted)}
 .adm-tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:#fff;margin-bottom:22px}
 .pp-kp{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px}.pp-kp b{display:block;font-size:1.6rem}.pp-kp span{color:var(--muted);font-size:.85rem}
-.pp-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.pp-bar input{flex:1 1 260px}.pp-bar select{flex:0 1 200px}
+.pp-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:stretch}.pp-bar input,.pp-bar select,.pp-bar .btn{height:44px;box-sizing:border-box;font-size:.92rem;margin:0}.pp-bar .btn{padding-block:0;white-space:nowrap}.pp-bar select:disabled{opacity:.5}.pp-bar input{flex:1 1 260px}.pp-bar select{flex:0 1 190px}
 .pp-chips{display:flex;gap:8px;flex-wrap:wrap}.pp-ck{list-style:none;padding:0;margin:14px 0 0}.pp-ck li{padding:4px 0}.pp-ck .y{color:var(--ok,#1a7f4b);font-weight:700}.pp-ck .n{color:var(--muted)}
 .pp-tl{list-style:none;padding:0;margin:0;border-right:2px solid var(--line)}.pp-tl li{padding:6px 14px;display:flex;gap:12px}.pp-tl b{min-width:90px}
 .pp-h{border-top:1px solid var(--line);padding:10px 0}.pp-h summary{cursor:pointer;font-weight:700}
@@ -1173,15 +1173,15 @@ function secPeople(){
   const cols=[...new Set(all.map(u=>u.college).filter(Boolean))].sort();
   $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+
     `<div class="adm-card"><div class="pp-kp"><div><b>${nonAdm.length}</b><span>مستخدم مسجّل (بدون المسؤولين)</span></div><div><b>${sub}</b><span>أرسلوا الاستمارة</span></div><div><b>${nonAdm.length-sub}</b><span>لم يرسلوا بعد</span></div>${admN?`<div><b>${admN}</b><span>مسؤول</span></div>`:""}</div>
-    <div class="pp-bar"><input type="search" id="ppQ" placeholder="ابحث بالاسم أو البريد أو الكلية أو آخر 4 أرقام من الرقم القومي" value="${esc(PPL.q)}" aria-label="بحث في المستخدمين">
-    <select id="ppF" aria-label="الحالة"><option value="all">كل الحالات</option><option value="yes">أرسلوا الاستمارة</option><option value="no">لم يرسلوا</option><option value="pending">طلب تعديل معلّق</option></select>
+    <div class="pp-bar"><input type="search" id="ppQ" placeholder="ابحث: اسم، بريد، كلية، أو آخر 4 أرقام" value="${esc(PPL.q)}" aria-label="بحث في المستخدمين">
+    <select id="ppF" aria-label="الحالة"><option value="all">كل الحالات</option><option value="yes">أرسلوا الاستمارة</option><option value="no">لم يرسلوا (بلا كلية)</option><option value="pending">طلب تعديل معلّق</option></select>
     <select id="ppS" aria-label="الترتيب"><option value="new">الأحدث تسجيلًا</option><option value="name">الاسم</option><option value="hrsD">الساعات الأكثر</option><option value="hrsA">الساعات الأقل</option></select>
     <select id="ppC" aria-label="الكلية"><option value="">كل الكليات</option>${cols.map(c=>`<option value="${esc(c)}">${esc(CSHORT(c))}</option>`).join("")}</select></div>
     <div class="pp-bar"><input type="text" id="ppN" inputmode="numeric" maxlength="14" dir="ltr" placeholder="بحث بالرقم القومي كاملًا (14 رقمًا)"><button class="btn sm" type="button" id="ppNb">بحث</button><button class="btn ghost sm" type="button" id="ppCsv">تنزيل القائمة CSV</button></div>
     <div class="amsg" id="ppM" role="status"></div><div id="ppList"></div></div>`;
-  $("#ppF").value=PPL.f; $("#ppS").value=PPL.s; $("#ppC").value=PPL.c;
+  $("#ppF").value=PPL.f; $("#ppS").value=PPL.s; $("#ppC").disabled=PPL.f==="no"; $("#ppC").value=PPL.c;
   $("#ppQ").oninput=e=>{PPL.q=e.target.value;PPL.page=0;drawPeople();};
-  $("#ppF").onchange=e=>{PPL.f=e.target.value;PPL.page=0;drawPeople();};
+  $("#ppF").onchange=e=>{PPL.f=e.target.value;if(PPL.f==="no"){PPL.c="";$("#ppC").value="";}$("#ppC").disabled=PPL.f==="no";PPL.page=0;drawPeople();};
   $("#ppS").onchange=e=>{PPL.s=e.target.value;PPL.page=0;drawPeople();};
   $("#ppC").onchange=e=>{PPL.c=e.target.value;PPL.page=0;drawPeople();};
   const byNid=async()=>{
