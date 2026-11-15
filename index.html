@@ -1177,20 +1177,13 @@ function secPeople(){
     <select id="ppF" aria-label="الحالة"><option value="all">كل الحالات</option><option value="yes">أرسلوا الاستمارة</option><option value="no">لم يرسلوا (بلا كلية)</option><option value="pending">طلب تعديل معلّق</option></select>
     <select id="ppS" aria-label="الترتيب"><option value="new">الأحدث تسجيلًا</option><option value="name">الاسم</option><option value="hrsD">الساعات الأكثر</option><option value="hrsA">الساعات الأقل</option></select>
     <select id="ppC" aria-label="الكلية"><option value="">كل الكليات</option>${cols.map(c=>`<option value="${esc(c)}">${esc(CSHORT(c))}</option>`).join("")}</select></div>
-    <div class="pp-bar"><input type="text" id="ppN" inputmode="numeric" maxlength="14" dir="ltr" placeholder="بحث بالرقم القومي كاملًا (14 رقمًا)"><button class="btn sm" type="button" id="ppNb">بحث</button><button class="btn ghost sm" type="button" id="ppCsv">تنزيل القائمة CSV</button></div>
+    <div class="pp-bar"><button class="btn ghost sm" type="button" id="ppCsv">تنزيل القائمة CSV</button></div>
     <div class="amsg" id="ppM" role="status"></div><div id="ppList"></div></div>`;
   $("#ppF").value=PPL.f; $("#ppS").value=PPL.s; $("#ppC").disabled=PPL.f==="no"; $("#ppC").value=PPL.c;
   $("#ppQ").oninput=e=>{PPL.q=e.target.value;PPL.page=0;drawPeople();};
   $("#ppF").onchange=e=>{PPL.f=e.target.value;if(PPL.f==="no"){PPL.c="";$("#ppC").value="";}$("#ppC").disabled=PPL.f==="no";PPL.page=0;drawPeople();};
   $("#ppS").onchange=e=>{PPL.s=e.target.value;PPL.page=0;drawPeople();};
   $("#ppC").onchange=e=>{PPL.c=e.target.value;PPL.page=0;drawPeople();};
-  const byNid=async()=>{
-    const n=$("#ppN").value.replace(/\D/g,""); if(n.length!==14){aMsg("ppM","أدخل الرقم القومي كاملًا (14 رقمًا).");return;}
-    aMsg("ppM",""); const r=await post({action:"person",nid:n}); if(!r) return;
-    if(okRes(r)){PPL.id=r.j.person.id;PPL.det=r.j;drawPerson();return;}
-    aMsg("ppM",r.status===404?"لا يوجد مستخدم بهذا الرقم القومي ضمن نطاقك.":r.status===400?"الرقم القومي غير صحيح.":"تعذر البحث. حاول مرة أخرى.");
-  };
-  $("#ppNb").onclick=byNid; $("#ppN").onkeydown=e=>{if(e.key==="Enter")byNid();};
   $("#ppCsv").onclick=()=>{
     const Q=v=>{v=String(v==null?"":v); if(/^[=+\-@\t\r]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"';};
     const rows=[["الاسم","البريد","الكلية","ساعات أسبوعيًّا","آخر 4 أرقام","تاريخ التسجيل","أرسل الاستمارة","آخر تعديل","طلب التعديل"],...ppFiltered().map(u=>[u.name,u.email,u.college,u.hours==null?"":u.hours,u.last4,u.createdAt,u.submitted?"نعم":"لا",u.updatedAt||"",u.request])];

@@ -314,18 +314,11 @@ module.exports = async (req, res) => {
       return L.send(res, 200, { ok: true });
     }
 
-    /* ---- one person in full (data permission, college scope): by user id or by the 14-digit national ID ---- */
+    /* ---- one person in full (data permission, college scope): by user id ---- */
     if (b.action === "person") {
       if (!L.can(me, "data")) return L.send(res, 403, { ok: false, error: "forbidden" });
-      let uid = String(b.id || "");
-      if (!UUID.test(uid)) {
-        const nid = String(b.nid || "").replace(/\D/g, "");
-        if (!S.validNid(nid)) return L.send(res, 400, { ok: false, error: "bad_nid" });
-        const f = await S.db("profiles?nid_hash=eq." + enc(S.nidHash(nid)) + "&select=id&limit=1");
-        if (!f.ok) return L.send(res, 502, { ok: false });
-        if (!f.j[0]) return L.send(res, 404, { ok: false, error: "not_found" });
-        uid = f.j[0].id;
-      }
+      const uid = String(b.id || "");
+      if (!UUID.test(uid)) return L.send(res, 400, { ok: false });
       const [pr, rr, qr, ar] = await Promise.all([
         S.db("profiles?id=eq." + enc(uid) + "&select=id,full_name,email,nid_last4,nid_enc,created_at&limit=1"),
         S.db("responses?user_id=eq." + enc(uid) + "&select=answers,history,created_at,updated_at&limit=1"),
