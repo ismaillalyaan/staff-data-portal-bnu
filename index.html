@@ -95,7 +95,7 @@ a{color:inherit}
 .hv em{font-style:normal;font-size:.76rem;color:var(--muted);background:var(--soft);border-radius:999px;padding:1px 8px}
 .hrow b{display:flex;align-items:baseline;justify-content:flex-end;gap:8px;font-weight:700;min-width:92px;font-size:.9rem;white-space:nowrap}
 .hrow b small{color:var(--muted);font-weight:400;font-size:.78rem;margin:0;min-width:34px;text-align:end}
-.lg b small{margin-inline-start:8px;color:var(--muted);font-weight:400}
+.leg b small{margin-inline-start:8px;color:var(--muted);font-weight:400}
 .cols{display:flex;align-items:flex-end;gap:14px;height:190px;border-bottom:2px solid var(--orange)}
 .col{flex:1;max-width:90px;margin-inline:auto;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.8rem}
 .col b{font-weight:700;margin-bottom:4px}
@@ -106,11 +106,11 @@ a{color:inherit}
 .dn{display:flex;gap:24px;align-items:center;flex-wrap:wrap;justify-content:center}
 .dn svg{width:150px;height:150px;flex:none}
 .dn text{font-family:var(--font);fill:var(--ink)}
-.lg{list-style:none;margin:0;padding:0;font-size:.88rem;flex:1;min-width:160px}
-.lg li{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
-.lg i{width:12px;height:12px;display:inline-block;flex:none;border-radius:50%}
-.lg .hv{margin-inline-start:auto}
-.lg small{color:var(--muted);margin-right:6px}
+.leg{list-style:none;margin:0;padding:0;font-size:.88rem;flex:1;min-width:160px}
+.leg li{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.leg i{width:12px;height:12px;display:inline-block;flex:none;border-radius:50%}
+.leg .hv{margin-inline-start:auto}
+.leg small{color:var(--muted);margin-right:6px}
 .tbl{width:100%;border-collapse:collapse;font-size:.92rem}
 .tbl th{text-align:right;font-weight:700;color:var(--ink);font-size:.8rem;background:var(--soft);padding:10px}
 .tbl td{padding:11px 10px;border-bottom:1px solid var(--line)}
@@ -150,7 +150,7 @@ a{color:inherit}
 .pill{padding:8px 16px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:.9rem;cursor:pointer;color:var(--ink)}
 .pill.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .dh{text-align:center;font-family:var(--display);color:var(--title);font-size:1.5rem;margin:18px 0 6px}
-.kp-s{margin:18px 0 22px}.g-s{margin-bottom:8px}
+.kp-s{margin:18px 0 22px}.g-s{margin-bottom:8px;align-items:start}
 
 .banner{border:1px solid #f1d9a8;border-radius:var(--r);background:var(--warn-bg);padding:12px 16px;margin:32px 0 0;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:.9rem}
 .empty{border:2px dashed var(--accent);border-radius:var(--r);padding:44px 24px;text-align:center;margin:40px 0;background:var(--soft)}
@@ -814,7 +814,7 @@ function donut(ent){
   const R=46,C=2*Math.PI*R; let off=0;
   const arcs=ent.map(([l,n],i)=>{const len=n/tot*C;const s=`<circle r="${R}" cx="60" cy="60" fill="none" stroke="var(--c${i%6+1})" stroke-width="16" stroke-dasharray="${Math.max(0,len-1.6)} ${C-len+1.6}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"><title>${esc(l)}: ${n}</title></circle>`;off+=len;return s;}).join("");
   return `<div class="dn"><svg viewBox="0 0 120 120" role="img" aria-label="رسم دائري">${arcs}<text x="60" y="58" text-anchor="middle" font-size="20" font-weight="600">${tot}</text><text x="60" y="74" text-anchor="middle" font-size="8" style="fill:var(--muted)">استجابة</text></svg>
-  <ul class="lg">${ent.map(([l,n],i)=>`<li><i style="background:var(--c${i%6+1})"></i>${esc(l)}<span class="hv"><b>${n}</b><em>${P(n/tot)}</em></span></li>`).join("")}</ul></div>`;
+  <ul class="leg">${ent.map(([l,n],i)=>`<li><i style="background:var(--c${i%6+1})"></i>${esc(l)}<span class="hv"><b>${n}</b><em>${P(n/tot)}</em></span></li>`).join("")}</ul></div>`;
 }
 function cols(ent,hi){
   const max=Math.max(1,...ent.map(e=>e[1])), top=hi!=null?hi:ent.reduce((b,e,i)=>e[1]>ent[b][1]?i:b,0);
