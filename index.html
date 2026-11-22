@@ -1208,10 +1208,85 @@ function printReport(full){
   addEventListener("afterprint",done);
   setTimeout(()=>window.print(),250);
 }
+
+/* ===== ZIP of name/hours PDFs (no external libs: canvas -> JPEG -> minimal PDF + ZIP) ===== */
+const PW=1240,PH=1754,ROWS=32,FNT='Tahoma,"Segoe UI",Arial,sans-serif';
+function nmPages(title,groups,sumRows){
+  const pages=[],mk=()=>{const c=document.createElement("canvas");c.width=PW;c.height=PH;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,PW,PH);x.direction="rtl";x.textBaseline="middle";return[c,x]};
+  const hdr=(x,t,sub)=>{x.fillStyle="#0B3C4D";x.fillRect(0,0,PW,150);x.fillStyle="#fff";x.textAlign="right";x.font="bold 30px "+FNT;x.fillText("جامعة بنها الأهلية – بيانات الهيئة المعاونة",PW-70,50);x.font="bold 44px "+FNT;x.fillText(t,PW-70,106);if(sub){x.textAlign="left";x.font="24px "+FNT;x.fillText(sub,70,106)}};
+  const row=(x,y,cells,head,alt)=>{x.fillStyle=head?"#0A6E85":(alt?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=head?"#fff":"#10303B";x.font=(head?"bold ":"")+"24px "+FNT;
+    x.textAlign="right";x.fillText(cells[0],PW-90,y+23);x.fillText(cells[1],PW-190,y+23);x.textAlign="center";x.fillText(cells[2],270,y+23)};
+  const foot=(x,i,n)=>{x.fillStyle="#6B7F88";x.font="20px "+FNT;x.textAlign="center";x.fillText(`صفحة ${i} من ${n}`,PW/2,PH-40)};
+  const all=[];
+  if(sumRows){const[c,x]=mk();hdr(x,title,new Date().toLocaleDateString("ar-EG"));x.fillStyle="#0B3C4D";x.textAlign="right";x.font="bold 30px "+FNT;x.fillText("ملخص الكليات",PW-70,215);
+    let y=250;const draw=(a,h,al)=>{x.fillStyle=h?"#0A6E85":(al?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=h?"#fff":"#10303B";x.font=(h?"bold ":"")+"24px "+FNT;x.textAlign="right";x.fillText(a[0],PW-90,y+23);x.textAlign="center";x.fillText(a[1],520,y+23);x.fillText(a[2],300,y+23);y+=46};
+    draw(["الكلية","عدد المستجيبين","متوسط الساعات"],1);sumRows.forEach((r,i)=>draw(r,0,i%2));all.push(c)}
+  groups.forEach(g=>{const n=Math.max(1,Math.ceil(g.rows.length/ROWS));
+    for(let k=0;k<n;k++){const[c,x]=mk();hdr(x,g.name,`${g.rows.length} عضو · متوسط ${g.avg} ساعة`);
+      let y=185;row(x,y,["م","الاسم","الساعات الأسبوعية"],1);y+=46;
+      g.rows.slice(k*ROWS,(k+1)*ROWS).forEach((r,i)=>{row(x,y,[String(k*ROWS+i+1),r.name,r.hours],0,i%2);y+=46});
+      if(k===n-1){y+=14;x.fillStyle="#0B3C4D";x.textAlign="right";x.font="bold 26px "+FNT;x.fillText(`الإجمالي: ${g.rows.length} عضو – مجموع الساعات ${g.sum} – المتوسط ${g.avg}`,PW-90,y+20)}
+      all.push(c)}});
+  all.forEach((c,i)=>foot(c.getContext("2d"),i+1,all.length));
+  return all;
+}
+const te=new TextEncoder();
+function pdfFrom(canvases){
+  const parts=[],off=[];let len=0;const put=b=>{if(typeof b==="string")b=te.encode(b);parts.push(b);len+=b.length};
+  const obj=(n,fn)=>{off[n]=len;put(n+" 0 obj\n");fn();put("\nendobj\n")};
+  const N=canvases.length;put("%PDF-1.4\n");
+  obj(1,()=>put("<</Type/Catalog/Pages 2 0 R>>"));
+  obj(2,()=>put("<</Type/Pages/Count "+N+"/Kids["+canvases.map((_,i)=>(3+i*4)+" 0 R").join(" ")+"]>>"));
+  canvases.forEach((c,i)=>{const b=3+i*4,jpg=Uint8Array.from(atob(c.toDataURL("image/jpeg",.9).split(",")[1]),ch=>ch.charCodeAt(0));
+    obj(b,()=>put(`<</Type/Page/Parent 2 0 R/MediaBox[0 0 595.28 841.89]/Resources<</XObject<</Im ${b+1} 0 R>>>>/Contents ${b+2} 0 R>>`));
+    obj(b+1,()=>{put(`<</Type/XObject/Subtype/Image/Width ${PW}/Height ${PH}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${jpg.length}>>\nstream\n`);put(jpg);put("\nendstream")});
+    const cs="q 595.28 0 0 841.89 0 0 cm /Im Do Q";
+    obj(b+2,()=>put(`<</Length ${cs.length}>>\nstream\n${cs}\nendstream`));
+    obj(b+3,()=>put("<<>>"))});
+  const total=3+N*4,xo=len;put(`xref\n0 ${total}\n0000000000 65535 f \n`);
+  for(let i=1;i<total;i++)put(String(off[i]).padStart(10,"0")+" 00000 n \n");
+  put(`trailer\n<</Size ${total}/Root 1 0 R>>\nstartxref\n${xo}\n%%EOF`);
+  return cat(parts);
+}
+function cat(parts){const n=parts.reduce((a,b)=>a+b.length,0),o=new Uint8Array(n);let p=0;parts.forEach(b=>{o.set(b,p);p+=b.length});return o}
+const CRC=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=b=>{let c=~0;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(~c)>>>0};
+function zipFiles(files){
+  const parts=[],cd=[];let off=0;
+  const u16=v=>new Uint8Array([v&255,v>>8&255]),u32=v=>new Uint8Array([v&255,v>>8&255,v>>16&255,v>>24&255]);
+  files.forEach(f=>{const nm=te.encode(f.name),crc=crc32(f.data),
+    lh=cat([u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(f.data.length),u32(f.data.length),u16(nm.length),u16(0),nm]);
+    parts.push(lh,f.data);
+    cd.push(cat([u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(f.data.length),u32(f.data.length),u16(nm.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off),nm]));
+    off+=lh.length+f.data.length});
+  const c=cat(cd);
+  return cat([...parts,c,u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(c.length),u32(off),u16(0)]);
+}
+async function downloadNamesZip(btn){
+  const ppl=(ADM.people||[]).filter(u=>!u.role&&u.submitted&&u.college);
+  if(!ppl.length){alert("لا توجد استجابات لتصديرها.");return}
+  const by={};ppl.forEach(u=>(by[u.college]=by[u.college]||[]).push(u));
+  const order=(ADM.colleges&&ADM.colleges.length?ADM.colleges.map(c=>Array.isArray(c)?c[0]:(c.name||c)):[]).filter(n=>by[n]);
+  Object.keys(by).forEach(n=>{if(!order.includes(n))order.push(n)});
+  const groups=order.map(n=>{const rows=by[n].slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),"ar")).map(u=>({name:String(u.name||"—"),h:Number(u.hours)||0,hours:u.hours==null||u.hours===""?"—":String(u.hours)}));
+    const sum=rows.reduce((a,r)=>a+r.h,0);return{name:n,rows,sum,avg:rows.length?(sum/rows.length).toFixed(1):"0"}});
+  const old=btn.textContent;btn.disabled=true;const tick=()=>new Promise(r=>setTimeout(r,0));
+  try{
+    const files=[],safe=n=>n.replace(/[\\/:*?"<>|]/g,"-");
+    btn.textContent="جارٍ تجهيز الملف العام…";await tick();
+    files.push({name:"00-عام-كل-الكليات.pdf",data:pdfFrom(nmPages("أسماء المستجيبين وساعاتهم – كل الكليات",groups,groups.map(g=>[g.name,String(g.rows.length),g.avg])))});
+    for(let i=0;i<groups.length;i++){btn.textContent=`جارٍ التجهيز ${i+1}/${groups.length}…`;await tick();
+      files.push({name:`${String(i+1).padStart(2,"0")}-${safe(groups[i].name)}.pdf`,data:pdfFrom(nmPages(groups[i].name,[groups[i]],null))})}
+    const url=URL.createObjectURL(new Blob([zipFiles(files)],{type:"application/zip"})),a=document.createElement("a");
+    a.href=url;a.download="اسماء-الهيئة-المعاونة-حسب-الكليات.zip";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(e){alert("تعذر إنشاء الملف: "+e.message)}
+  btn.disabled=false;btn.textContent=old;
+}
+
 function secAnalytics(){
   const sc=ADM.me.colleges;
-  $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+`<div class="adm-card rp-bar"><div><b>تقرير PDF جاهز للطباعة</b><p class="hint">يشمل كل أقسام التحليل مرتبة بصفحة غلاف وفهرس. اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p></div><div class="row"><button class="btn" type="button" id="rpOne">تقرير العرض الحالي</button><button class="btn ghost" type="button" id="rpAll">تقرير شامل لكل الكليات</button></div></div>`+'<div id="admDash"></div>';
-  $("#rpOne").onclick=()=>printReport(false); $("#rpAll").onclick=()=>printReport(true);
+  $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+`<div class="adm-card rp-bar"><div><b>تقرير PDF جاهز للطباعة</b><p class="hint">يشمل كل أقسام التحليل مرتبة بصفحة غلاف وفهرس. اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p></div><div class="row"><button class="btn" type="button" id="rpOne">تقرير العرض الحالي</button><button class="btn ghost" type="button" id="rpAll">تقرير شامل لكل الكليات</button><button class="btn ghost" type="button" id="rpZip">ZIP: الأسماء والساعات لكل كلية</button></div></div>`+'<div id="admDash"></div>';
+  $("#rpOne").onclick=()=>printReport(false); $("#rpAll").onclick=()=>printReport(true); $("#rpZip").onclick=e=>downloadNamesZip(e.currentTarget);
   renderDash();
 }
 
