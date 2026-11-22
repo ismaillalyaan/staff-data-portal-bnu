@@ -346,6 +346,26 @@ details.dd[open] summary{border-color:var(--accent)}
 .adm-lg .nt{max-width:340px;overflow-wrap:anywhere;color:var(--ink)}
 .adm-lg .tm{white-space:nowrap;color:var(--muted)}
 .adm-tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:#fff;margin-bottom:22px}
+.rp-bar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.rp-bar p{margin:4px 0 0}
+#rpRoot{display:none}
+@media print{
+  @page{size:A4;margin:14mm 12mm 16mm;@bottom-center{content:counter(page);font:10pt Arial;color:#555}}
+  html,body{background:#fff!important}
+  body>*:not(#rpRoot){display:none!important}
+  #rpRoot{display:block;color:#0B3C4D;font-family:Arial,Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #rpRoot *{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:none!important;animation:none!important}
+  .rp-cover{padding-top:22mm;break-after:page}
+  .rp-uni{font-size:22pt;font-weight:700;color:#0A6E85}.rp-sec{font-size:14pt;color:#2F5563;margin-top:4px}
+  .rp-cover h1{font-size:30pt;margin:22mm 0 12mm;line-height:1.4;border-top:3px solid #0A6E85;padding-top:8mm}
+  .rp-cover dl{margin:0 0 14mm}.rp-cover dl div{display:flex;gap:16px;padding:8px 0;border-bottom:1px solid #CFE5EC;font-size:13pt}.rp-cover dt{min-width:42mm;color:#2F5563}.rp-cover dd{margin:0;font-weight:700}
+  .rp-toc h3{font-size:14pt;margin:0 0 6px}.rp-toc ol{margin:0;padding-inline-start:22px;font-size:12pt;line-height:1.9}.rp-toc em{font-style:normal;color:#2F5563;margin-inline-start:8px}.rp-toc p{font-size:10pt;color:#2F5563;margin-top:10px}
+  .rp-part{break-before:page;zoom:.8}
+  .rp-pane .kpis{grid-template-columns:repeat(4,1fr)!important}
+  .rp-ph{display:flex;justify-content:space-between;align-items:baseline;background:#0B3C4D;color:#fff;border-radius:6px;padding:10px 16px;margin-bottom:12px}.rp-ph h2{margin:0;font-size:17pt;color:#fff}.rp-ph span{font-size:11pt;color:#CFE5EC}
+  .rp-pane{margin-bottom:10px}.rp-pane h3{font-size:13pt;margin:10px 0 8px;padding-bottom:4px;border-bottom:2px solid #0A6E85;color:#0A6E85;break-after:avoid}
+  .rp-pane .fig,.rp-pane .kpis,.rp-pane .tbl-wrap{break-inside:avoid}
+  .rp-pane .grid2{gap:12px}.rp-pane .fig{padding:12px 14px;margin-bottom:0}
+}
 .pp-kp{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px}.pp-kp b{display:block;font-size:1.6rem}.pp-kp span{color:var(--muted);font-size:.85rem}
 .pp-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:stretch}.pp-bar input,.pp-bar select,.pp-bar .btn{height:44px;box-sizing:border-box;font-size:.92rem;margin:0}.pp-bar .btn{padding-block:0;white-space:nowrap}.pp-bar select:disabled{opacity:.5}.pp-bar input{flex:1 1 260px}.pp-bar select{flex:0 1 190px}
 .pp-chips{display:flex;gap:8px;flex-wrap:wrap}.pp-ck{list-style:none;padding:0;margin:14px 0 0}.pp-ck li{padding:4px 0}.pp-ck .y{color:var(--ok,#1a7f4b);font-weight:700}.pp-ck .n{color:var(--muted)}
@@ -1145,9 +1165,38 @@ function secHome(){
 }
 
 /* --- التحليلات --- */
+
+/* --- تقرير PDF للتحليلات (طباعة / حفظ بصيغة PDF) --- */
+function rpPart(title,rs,col){
+  const panes=dashPanes(rs,col?null:"all");
+  if(col){const pk="q"+(8+COLLEGES.indexOf(col)); panes[0].h=panes[0].h.replace(/<\/div>$/,"")+fig("البرنامج الأكاديمي","",hbars(tally(pk,rs),rs.length,8))+"</div>";}
+  return `<section class="rp-part"><div class="rp-ph"><h2>${esc(title)}</h2><span>${rs.length} استجابة</span></div>`+panes.map(x=>`<div class="rp-pane"><h3>${esc(x.t)}</h3>${x.h}</div>`).join("")+`</section>`;
+}
+function buildReport(full){
+  const rows=mapRows(), sc=ADM.me&&ADM.me.colleges, vis=sc?COLLEGES.filter(c=>sc.includes(c[0])):COLLEGES;
+  const cur=(!full&&ADM.view&&ADM.view!=="all")?vis.find(c=>c[0]===ADM.view):null;
+  const parts=[];
+  if(full){parts.push(["التحليل العام لكل الكليات",rows,null]); vis.forEach(c=>{const r=rows.filter(x=>x.a.q7===c[0]); if(r.length) parts.push([c[0],r,c]);});}
+  else parts.push([cur?cur[0]:"التحليل العام لكل الكليات",cur?rows.filter(x=>x.a.q7===cur[0]):rows,cur]);
+  const date=new Date().toLocaleDateString("ar-EG",{dateStyle:"long",timeZone:"Africa/Cairo"});
+  const cover=`<section class="rp-cover"><div class="rp-uni">جامعة بنها الأهلية</div><div class="rp-sec">قطاع الشؤون الأكاديمية</div><h1>تقرير تحليل بيانات الهيئة المعاونة</h1>
+    <dl><div><dt>النطاق</dt><dd>${full?"التحليل العام وتحليل كل كلية":esc(parts[0][0])}${sc?" (ضمن الكليات المسموح بها)":""}</dd></div><div><dt>عدد الاستجابات</dt><dd>${rows.length}</dd></div><div><dt>تاريخ التقرير</dt><dd>${esc(date)}</dd></div></dl>
+    <div class="rp-toc"><h3>المحتويات</h3><ol>${parts.map(x=>`<li>${esc(x[0])} <em>${x[1].length}</em></li>`).join("")}</ol><p>تتضمن كل كلية: نظرة عامة، العبء التدريسي، المؤهلات والدراسة، الأبحاث والإنجازات، المهارات والتدريب.</p></div></section>`;
+  return cover+parts.map(x=>rpPart(x[0],x[1],x[2])).join("");
+}
+function printReport(full){
+  if(!ADM.records.length){alert("لا توجد استجابات لإنشاء تقرير.");return;}
+  const old=$("#rpRoot"); if(old) old.remove();
+  const root=document.createElement("div"); root.id="rpRoot"; root.setAttribute("dir","rtl"); root.innerHTML=buildReport(full); document.body.appendChild(root);
+  const t=document.title; document.title="تقرير_الهيئة_المعاونة_"+new Date().toISOString().slice(0,10);
+  const done=()=>{root.remove(); document.title=t; removeEventListener("afterprint",done);};
+  addEventListener("afterprint",done);
+  setTimeout(()=>window.print(),250);
+}
 function secAnalytics(){
   const sc=ADM.me.colleges;
-  $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+'<div id="admDash"></div>';
+  $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+`<div class="adm-card rp-bar"><div><b>تقرير PDF جاهز للطباعة</b><p class="hint">يشمل كل أقسام التحليل مرتبة بصفحة غلاف وفهرس. اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p></div><div class="row"><button class="btn" type="button" id="rpOne">تقرير العرض الحالي</button><button class="btn ghost" type="button" id="rpAll">تقرير شامل لكل الكليات</button></div></div>`+'<div id="admDash"></div>';
+  $("#rpOne").onclick=()=>printReport(false); $("#rpAll").onclick=()=>printReport(true);
   renderDash();
 }
 
