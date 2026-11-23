@@ -1210,7 +1210,7 @@ function printReport(full){
 }
 
 /* ===== ZIP of name/hours PDFs (no external libs: canvas -> JPEG -> minimal PDF + ZIP) ===== */
-const PW=1240,PH=1754,ROWS=31,FNT='Tahoma,"Segoe UI",Arial,sans-serif';
+const PW=1240,PH=1754,ROWS=31,FNT='"Times New Roman",Times,"Liberation Serif",serif';
 function nmPages(title,groups,sumRows){
   const mk=()=>{const c=document.createElement("canvas");c.width=PW;c.height=PH;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,PW,PH);x.textBaseline="middle";return[c,x]};
   /* draw text with its right edge (or centre) at X, shrinking to fit maxW; direction chosen by script so Latin names are never mirrored */
