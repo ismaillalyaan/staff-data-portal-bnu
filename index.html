@@ -1210,22 +1210,27 @@ function printReport(full){
 }
 
 /* ===== ZIP of name/hours PDFs (no external libs: canvas -> JPEG -> minimal PDF + ZIP) ===== */
-const PW=1240,PH=1754,ROWS=32,FNT='Tahoma,"Segoe UI",Arial,sans-serif';
+const PW=1240,PH=1754,ROWS=31,FNT='Tahoma,"Segoe UI",Arial,sans-serif';
 function nmPages(title,groups,sumRows){
-  const pages=[],mk=()=>{const c=document.createElement("canvas");c.width=PW;c.height=PH;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,PW,PH);x.direction="rtl";x.textBaseline="middle";return[c,x]};
-  const hdr=(x,t,sub)=>{x.fillStyle="#0B3C4D";x.fillRect(0,0,PW,150);x.fillStyle="#fff";x.textAlign="right";x.font="bold 30px "+FNT;x.fillText("جامعة بنها الأهلية – بيانات الهيئة المعاونة",PW-70,50);x.font="bold 44px "+FNT;x.fillText(t,PW-70,106);if(sub){x.textAlign="left";x.font="24px "+FNT;x.fillText(sub,70,106)}};
-  const row=(x,y,cells,head,alt)=>{x.fillStyle=head?"#0A6E85":(alt?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=head?"#fff":"#10303B";x.font=(head?"bold ":"")+"24px "+FNT;
-    x.textAlign="right";x.fillText(cells[0],PW-90,y+23);x.fillText(cells[1],PW-170,y+23);x.textAlign="center";x.fillText(cells[2],640,y+23);x.textAlign="right";if(!head&&cells[3])x.fillStyle="#B25E00";x.font=(head?"bold ":"")+"21px "+FNT;x.fillText(cells[3]||"",470,y+23)};
-  const foot=(x,i,n)=>{x.fillStyle="#6B7F88";x.font="20px "+FNT;x.textAlign="center";x.fillText(`صفحة ${i} من ${n}`,PW/2,PH-40)};
+  const mk=()=>{const c=document.createElement("canvas");c.width=PW;c.height=PH;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,PW,PH);x.textBaseline="middle";return[c,x]};
+  /* draw text with its right edge (or centre) at X, shrinking to fit maxW; direction chosen by script so Latin names are never mirrored */
+  const T=(x,t,X,y,px,bold,maxW,center)=>{t=String(t);x.direction=/[؀-ۿ]/.test(t)?"rtl":"ltr";x.textAlign="left";let f=px;
+    for(;;){x.font=(bold?"bold ":"")+f+"px "+FNT;if(x.measureText(t).width<=maxW||f<=14)break;f--}
+    const w=Math.min(x.measureText(t).width,maxW);x.fillText(t,center?X-w/2:X-w,y,maxW)};
+  const hdr=(x,t,sub)=>{x.fillStyle="#0B3C4D";x.fillRect(0,0,PW,150);x.fillStyle="#fff";T(x,"جامعة بنها الأهلية – بيانات الهيئة المعاونة",PW-70,50,30,1,PW-140);T(x,t,PW-70,106,44,1,PW-140);
+    if(sub){x.fillStyle="#4A6672";T(x,sub,PW-70,180,24,0,PW-140)}};
+  const row=(x,y,cells,head,alt)=>{x.fillStyle=head?"#0A6E85":(alt?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=head?"#fff":"#10303B";
+    T(x,cells[0],PW-90,y+23,24,head,60);T(x,cells[1],PW-170,y+23,24,head,560);T(x,cells[2],330,y+23,24,head,300,1)};
+  const foot=(x,i,n)=>{x.fillStyle="#6B7F88";T(x,`صفحة ${i} من ${n}`,PW/2,PH-40,20,0,300,1)};
   const all=[];
-  if(sumRows){const[c,x]=mk();hdr(x,title,new Date().toLocaleDateString("ar-EG"));x.fillStyle="#0B3C4D";x.textAlign="right";x.font="bold 30px "+FNT;x.fillText("ملخص الكليات",PW-70,215);
-    let y=250;const draw=(a,h,al)=>{x.fillStyle=h?"#0A6E85":(al?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=h?"#fff":"#10303B";x.font=(h?"bold ":"")+"24px "+FNT;x.textAlign="right";x.fillText(a[0],PW-90,y+23);x.textAlign="center";x.fillText(a[1],520,y+23);x.fillText(a[2],300,y+23);y+=46};
+  if(sumRows){const[c,x]=mk();hdr(x,title,new Date().toLocaleDateString("ar-EG"));x.fillStyle="#0B3C4D";T(x,"ملخص الكليات",PW-70,245,30,1,600);
+    let y=280;const draw=(a,h,al)=>{x.fillStyle=h?"#0A6E85":(al?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=h?"#fff":"#10303B";T(x,a[0],PW-90,y+23,24,h,620);T(x,a[1],520,y+23,24,h,200,1);T(x,a[2],300,y+23,24,h,200,1);y+=46};
     draw(["الكلية","عدد المستجيبين","متوسط الساعات"],1);sumRows.forEach((r,i)=>draw(r,0,i%2));all.push(c)}
   groups.forEach(g=>{const n=Math.max(1,Math.ceil(g.rows.length/ROWS));
     for(let k=0;k<n;k++){const[c,x]=mk();hdr(x,g.name,`${g.rows.length} عضو · متوسط ${g.avg} ساعة`);
-      let y=185;row(x,y,["م","الاسم","الساعات الأسبوعية"],1);y+=46;
+      let y=215;row(x,y,["م","الاسم","الساعات الأسبوعية"],1);y+=46;
       g.rows.slice(k*ROWS,(k+1)*ROWS).forEach((r,i)=>{row(x,y,[String(k*ROWS+i+1),r.name,r.hours],0,i%2);y+=46});
-      if(k===n-1){y+=14;x.fillStyle="#0B3C4D";x.textAlign="right";x.font="bold 26px "+FNT;x.fillText(`الإجمالي: ${g.rows.length} عضو – مجموع الساعات ${g.sum} – المتوسط ${g.avg}`,PW-90,y+20)}
+      if(k===n-1){y+=14;x.fillStyle="#0B3C4D";T(x,`الإجمالي: ${g.rows.length} عضو – مجموع الساعات ${g.sum} – المتوسط ${g.avg}`,PW-90,y+20,26,1,PW-180)}
       all.push(c)}});
   all.forEach((c,i)=>foot(c.getContext("2d"),i+1,all.length));
   return all;
