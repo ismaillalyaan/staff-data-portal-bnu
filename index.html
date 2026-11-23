@@ -1215,17 +1215,17 @@ function nmPages(title,groups,sumRows){
   const pages=[],mk=()=>{const c=document.createElement("canvas");c.width=PW;c.height=PH;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,PW,PH);x.direction="rtl";x.textBaseline="middle";return[c,x]};
   const hdr=(x,t,sub)=>{x.fillStyle="#0B3C4D";x.fillRect(0,0,PW,150);x.fillStyle="#fff";x.textAlign="right";x.font="bold 30px "+FNT;x.fillText("جامعة بنها الأهلية – بيانات الهيئة المعاونة",PW-70,50);x.font="bold 44px "+FNT;x.fillText(t,PW-70,106);if(sub){x.textAlign="left";x.font="24px "+FNT;x.fillText(sub,70,106)}};
   const row=(x,y,cells,head,alt)=>{x.fillStyle=head?"#0A6E85":(alt?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=head?"#fff":"#10303B";x.font=(head?"bold ":"")+"24px "+FNT;
-    x.textAlign="right";x.fillText(cells[0],PW-90,y+23);x.fillText(cells[1],PW-190,y+23);x.textAlign="center";x.fillText(cells[2],270,y+23)};
+    x.textAlign="right";x.fillText(cells[0],PW-90,y+23);x.fillText(cells[1],PW-170,y+23);x.textAlign="center";x.fillText(cells[2],640,y+23);x.textAlign="right";if(!head&&cells[3])x.fillStyle="#B25E00";x.font=(head?"bold ":"")+"21px "+FNT;x.fillText(cells[3]||"",470,y+23)};
   const foot=(x,i,n)=>{x.fillStyle="#6B7F88";x.font="20px "+FNT;x.textAlign="center";x.fillText(`صفحة ${i} من ${n}`,PW/2,PH-40)};
   const all=[];
   if(sumRows){const[c,x]=mk();hdr(x,title,new Date().toLocaleDateString("ar-EG"));x.fillStyle="#0B3C4D";x.textAlign="right";x.font="bold 30px "+FNT;x.fillText("ملخص الكليات",PW-70,215);
-    let y=250;const draw=(a,h,al)=>{x.fillStyle=h?"#0A6E85":(al?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=h?"#fff":"#10303B";x.font=(h?"bold ":"")+"24px "+FNT;x.textAlign="right";x.fillText(a[0],PW-90,y+23);x.textAlign="center";x.fillText(a[1],520,y+23);x.fillText(a[2],300,y+23);y+=46};
-    draw(["الكلية","عدد المستجيبين","متوسط الساعات"],1);sumRows.forEach((r,i)=>draw(r,0,i%2));all.push(c)}
+    let y=250;const draw=(a,h,al)=>{x.fillStyle=h?"#0A6E85":(al?"#F2F9FB":"#fff");x.fillRect(70,y,PW-140,44);x.fillStyle=h?"#fff":"#10303B";x.font=(h?"bold ":"")+"24px "+FNT;x.textAlign="right";x.fillText(a[0],PW-90,y+23);x.textAlign="center";x.fillText(a[1],620,y+23);x.fillText(a[2],440,y+23);x.fillText(a[3],260,y+23);y+=46};
+    draw(["الكلية","الإجمالي","منهم إضافيون","متوسط الساعات"],1);sumRows.forEach((r,i)=>draw(r,0,i%2));all.push(c)}
   groups.forEach(g=>{const n=Math.max(1,Math.ceil(g.rows.length/ROWS));
-    for(let k=0;k<n;k++){const[c,x]=mk();hdr(x,g.name,`${g.rows.length} عضو · متوسط ${g.avg} ساعة`);
-      let y=185;row(x,y,["م","الاسم","الساعات الأسبوعية"],1);y+=46;
-      g.rows.slice(k*ROWS,(k+1)*ROWS).forEach((r,i)=>{row(x,y,[String(k*ROWS+i+1),r.name,r.hours],0,i%2);y+=46});
-      if(k===n-1){y+=14;x.fillStyle="#0B3C4D";x.textAlign="right";x.font="bold 26px "+FNT;x.fillText(`الإجمالي: ${g.rows.length} عضو – مجموع الساعات ${g.sum} – المتوسط ${g.avg}`,PW-90,y+20)}
+    for(let k=0;k<n;k++){const[c,x]=mk();hdr(x,g.name,`${g.rows.length} عضو`+(g.ne?` (${g.np} أساسي + ${g.ne} إضافي)`:"")+` · متوسط ${g.avg} ساعة`);
+      let y=185;row(x,y,["م","الاسم","الساعات الأسبوعية","ملاحظة"],1);y+=46;
+      g.rows.slice(k*ROWS,(k+1)*ROWS).forEach((r,i)=>{row(x,y,[String(k*ROWS+i+1),r.name,r.hours,r.note],0,i%2);y+=46});
+      if(k===n-1){y+=14;x.fillStyle="#0B3C4D";x.textAlign="right";x.font="bold 26px "+FNT;x.fillText(`الإجمالي: ${g.rows.length} عضو`+(g.ne?` (${g.np} أساسي + ${g.ne} إضافي)`:"")+` – مجموع ساعات الأساسيين ${g.sum} – المتوسط ${g.avg}`,PW-90,y+20)}
       all.push(c)}});
   all.forEach((c,i)=>foot(c.getContext("2d"),i+1,all.length));
   return all;
@@ -1265,16 +1265,16 @@ function zipFiles(files){
 async function downloadNamesZip(btn){
   const ppl=(ADM.people||[]).filter(u=>!u.role&&u.submitted&&u.college);
   if(!ppl.length){alert("لا توجد استجابات لتصديرها.");return}
-  const by={};ppl.forEach(u=>(by[u.college]=by[u.college]||[]).push(u));
+  const by={};ppl.forEach(u=>{(by[u.college]=by[u.college]||[]).push(u);(u.others||[]).forEach(o=>{if(o!==u.college)(by[o]=by[o]||[]).push(Object.assign({},u,{extra:u.college}))})});
   const order=(ADM.colleges&&ADM.colleges.length?ADM.colleges.map(c=>Array.isArray(c)?c[0]:(c.name||c)):[]).filter(n=>by[n]);
   Object.keys(by).forEach(n=>{if(!order.includes(n))order.push(n)});
-  const groups=order.map(n=>{const rows=by[n].slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),"ar")).map(u=>({name:String(u.name||"—"),h:Number(u.hours)||0,hours:u.hours==null||u.hours===""?"—":String(u.hours)}));
-    const sum=rows.reduce((a,r)=>a+r.h,0);return{name:n,rows,sum,avg:rows.length?(sum/rows.length).toFixed(1):"0"}});
+  const groups=order.map(n=>{const rows=by[n].slice().sort((a,b)=>(!!a.extra-!!b.extra)||String(a.name).localeCompare(String(b.name),"ar")).map(u=>({name:String(u.name||"—"),h:Number(u.hours)||0,hours:u.hours==null||u.hours===""?"—":String(u.hours),note:u.extra?"كلية إضافية – الأصلية: "+u.extra:"",extra:!!u.extra}));
+    const prim=rows.filter(r=>!r.extra),sum=prim.reduce((a,r)=>a+r.h,0);return{name:n,rows,np:prim.length,ne:rows.length-prim.length,sum,avg:prim.length?(sum/prim.length).toFixed(1):"0"}});
   const old=btn.textContent;btn.disabled=true;const tick=()=>new Promise(r=>setTimeout(r,0));
   try{
     const files=[],safe=n=>n.replace(/[\\/:*?"<>|]/g,"-");
     btn.textContent="جارٍ تجهيز الملف العام…";await tick();
-    files.push({name:"00-عام-كل-الكليات.pdf",data:pdfFrom(nmPages("أسماء المستجيبين وساعاتهم – كل الكليات",groups,groups.map(g=>[g.name,String(g.rows.length),g.avg])))});
+    files.push({name:"00-عام-كل-الكليات.pdf",data:pdfFrom(nmPages("أسماء المستجيبين وساعاتهم – كل الكليات",groups,groups.map(g=>[g.name,String(g.rows.length),String(g.ne),g.avg])))});
     for(let i=0;i<groups.length;i++){btn.textContent=`جارٍ التجهيز ${i+1}/${groups.length}…`;await tick();
       files.push({name:`${String(i+1).padStart(2,"0")}-${safe(groups[i].name)}.pdf`,data:pdfFrom(nmPages(groups[i].name,[groups[i]],null))})}
     const url=URL.createObjectURL(new Blob([zipFiles(files)],{type:"application/zip"})),a=document.createElement("a");
@@ -1283,6 +1283,8 @@ async function downloadNamesZip(btn){
   btn.disabled=false;btn.textContent=old;
 }
 
+const xtraN=(rows,c)=>rows.filter(r=>r.a.q7!==c&&r.a.q19==="نعم"&&Array.isArray(r.a.q20)&&r.a.q20.includes(c)).length;
+const xtraTitle=(rows,c)=>{const p=rows.filter(r=>r.a.q7===c).length,e=xtraN(rows,c);return e?`${p} أساسي + ${e} يدرّس بها كلية إضافية`:`${p} أساسي`};
 function secAnalytics(){
   const sc=ADM.me.colleges;
   $("#admSec").innerHTML=(sc?`<div class="adm-note">تظهر لك بيانات الكليات المسموح بها فقط: ${esc(scopeText())}.</div>`:"")+`<div class="adm-card rp-bar"><div><b>تقرير PDF جاهز للطباعة</b><p class="hint">يشمل كل أقسام التحليل مرتبة بصفحة غلاف وفهرس. اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p></div><div class="row"><button class="btn" type="button" id="rpOne">تقرير العرض الحالي</button><button class="btn ghost" type="button" id="rpAll">تقرير شامل لكل الكليات</button><button class="btn ghost" type="button" id="rpZip">ZIP: الأسماء والساعات لكل كلية</button></div></div>`+'<div id="admDash"></div>';
@@ -1669,7 +1671,7 @@ function renderDash(){
   const col=view==="all"?null:visCols.find(c=>c[0]===view);
   const rs=col?rows.filter(r=>r.a.q7===view):rows;
   const tiles=`<div class="tiles"><button type="button" class="tile ${!col?"on":""}" data-v="all"><span class="ti">📈</span><b>التحليل العام</b><small>${rows.length}</small></button>`+
-    visCols.map(c=>`<button type="button" class="tile ${col&&col[0]===c[0]?"on":""}" data-v="${esc(c[0])}"><span class="ti">${CICON[COLLEGES.indexOf(c)]||"🏛️"}</span><b>${esc(CSHORT(c[0]))}</b><small>${rows.filter(r=>r.a.q7===c[0]).length}</small></button>`).join("")+`</div>`;
+    visCols.map(c=>`<button type="button" class="tile ${col&&col[0]===c[0]?"on":""}" data-v="${esc(c[0])}"><span class="ti">${CICON[COLLEGES.indexOf(c)]||"🏛️"}</span><b>${esc(CSHORT(c[0]))}</b><small title="${xtraTitle(rows,c[0])}">${rows.filter(r=>r.a.q7===c[0]).length+xtraN(rows,c[0])}</small></button>`).join("")+`</div>`;
   let body;
   if(!rs.length) body='<div class="empty"><h2>لا توجد استجابات لهذه الكلية بعد</h2></div>';
   else{

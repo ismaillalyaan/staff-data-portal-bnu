@@ -132,6 +132,7 @@ async function listPeople(me) {
     out.push({
       id: p.id, name: p.full_name || "", email: p.email || "", last4: p.nid_last4 || "", createdAt: p.created_at,
       submitted: !!r, college, hours: r ? (+r.answers["27"] > 0 ? +r.answers["27"] : null) : null, submittedAt: r ? r.created_at : null, updatedAt: r ? r.updated_at : null,
+      others: r && r.answers["19"] === "نعم" && Array.isArray(r.answers["20"]) ? r.answers["20"].filter(x => typeof x === "string" && x !== college).slice(0, 12) : [],
       request: qm[p.id] || "", role: am[p.id] || ""
     });
   }
